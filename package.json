@@ -1,0 +1,19 @@
+{
+  "name": "septiembre",
+  "version": "1.0.0",
+  "description": "",
+  "main": "JsWger.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.20.0",
+    "dotenv": "^17.4.2",
+    "firebase-admin": "^10.3.0",
+    "mongoose": "^9.9.5"
+  }
+}

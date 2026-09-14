@@ -1,0 +1,154 @@
+.hero-container {
+  position: relative;
+  min-height: min(560px, 72vh);
+  background-image: url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=2000&q=85');
+  background-size: cover;
+  background-position: center 38%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 16px 34px rgba(16, 45, 52, 0.24);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(9, 27, 31, 0.52), rgba(9, 27, 31, 0.34) 52%, rgba(9, 27, 31, 0.7));
+}
+
+.header-content {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  z-index: 3;
+}
+
+.hero-title {
+  position: relative;
+  z-index: 3;
+  margin: 0;
+  color: #fff8ed;
+  font-family: Georgia, 'Times New Roman', serif;
+  width: min(94%, 1100px);
+  max-width: 100%;
+  font-size: clamp(2.4rem, 9vw, 8rem);
+  font-weight: 900;
+  letter-spacing: clamp(0.01em, 0.7vw, 0.08em);
+  line-height: 0.95;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 0 25px rgba(255, 255, 255, 0.25), 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.slogan-container {
+  position: absolute;
+  bottom: 24px;
+  width: 100%;
+  overflow: hidden;
+  z-index: 3;
+}
+
+.slogan {
+  margin: 0;
+  color: #fff8ed;
+  font-size: clamp(1.1rem, 2.5vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
+  text-align: center;
+  white-space: nowrap;
+  animation: slogan-slide 14s linear infinite;
+}
+
+@keyframes slogan-slide {
+  0%, 15% { transform: translateX(100%); }
+  85%, 100% { transform: translateX(-100%); }
+}
+
+.language-selector {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 248, 237, 0.32);
+  border-radius: 10px;
+  background: rgba(16, 45, 52, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.language-selector button {
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #fff8ed;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.language-selector button:hover {
+  background: rgba(255, 248, 237, 0.15);
+}
+
+.language-selector button.active {
+  border-color: #fff8ed;
+  background: #fff8ed;
+  color: #173b43;
+}
+
+@media (max-width: 768px) {
+  .hero-container {
+    min-height: 500px;
+    background-position: 52% 32%;
+    background-size: cover;
+  }
+
+  .header-content {
+    top: 18px;
+    right: 16px;
+  }
+
+  .hero-title {
+    width: calc(100% - 28px);
+    font-size: clamp(2.15rem, 10vw, 4.6rem);
+    letter-spacing: 0.015em;
+    line-height: 1;
+    overflow-wrap: normal;
+  }
+
+  .slogan-container {
+    bottom: 18px;
+  }
+
+  .slogan {
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero-container {
+    min-height: 460px;
+    background-position: 50% 28%;
+  }
+
+  .header-content {
+    top: 14px;
+    right: 12px;
+  }
+
+  .language-selector {
+    gap: 3px;
+    padding: 5px;
+  }
+
+  .language-selector button {
+    padding: 7px 10px;
+    font-size: 0.82rem;
+  }
+
+  .hero-title {
+    font-size: clamp(1.85rem, 10vw, 3.2rem);
+  }
+}

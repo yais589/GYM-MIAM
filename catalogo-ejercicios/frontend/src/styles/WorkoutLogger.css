@@ -1,0 +1,109 @@
+.workout-logger {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.workout-logger h2 {
+  font-size: 1.8rem;
+  color: #1f2937;
+  font-weight: 700;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.workout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.form-group select,
+.form-group input {
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  outline: none;
+}
+
+.form-group select {
+  cursor: pointer;
+}
+
+.workout-form .btn-primary {
+  padding: 12px;
+  font-size: 1rem;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.workout-form .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.message {
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 500;
+  animation: slideIn 0.3s ease;
+}
+
+.message.success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.message.error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .workout-logger {
+    padding: 15px;
+  }
+
+  .workout-logger h2 {
+    font-size: 1.4rem;
+  }
+}

@@ -1,0 +1,162 @@
+.user-section {
+  width: 100%;
+  min-height: 620px;
+  margin: 36px 0 30px;
+  padding: 36px 20px;
+  border-radius: 18px;
+  background:
+    linear-gradient(rgba(7, 20, 24, 0.62), rgba(7, 20, 24, 0.72)),
+    url('https://img.magnific.com/fotos-premium/gimnasio-cuenta-filas-mancuernas-que-ofrecen-amplia-gama-pesos-fondo-pantalla-movil-vertical_896558-14408.jpg?w=2000') center / cover;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 18px 42px rgba(16, 45, 52, 0.2);
+  overflow: hidden;
+}
+
+.titan-form-box {
+  width: min(900px, 100%);
+  padding: 30px;
+  text-align: center;
+}
+
+.section-kicker {
+  color: #ff7043;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+.titulo-titangym {
+  margin: 8px 0 10px;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: clamp(2.8rem, 7vw, 4.5rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 4px 4px 12px rgba(0, 0, 0, 0.9), 0 0 25px #ff4500, 0 0 45px rgba(255, 0, 0, 0.8);
+}
+
+.subtitulo-titangym {
+  margin-bottom: 32px;
+  color: #fff;
+  font-size: clamp(1rem, 2.5vw, 1.35rem);
+  font-weight: 600;
+  text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.horizontal-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 14px;
+  background: rgba(7, 20, 24, 0.46);
+  backdrop-filter: blur(8px);
+  text-align: left;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.form-group label {
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #173b43;
+  font-family: Arial, sans-serif;
+  font-size: 0.92rem;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: 2px solid #ff7043;
+  border-color: #ff7043;
+}
+
+.titan-submit {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 4px;
+  padding: 13px;
+  border: none;
+  border-radius: 7px;
+  background: #ff4500;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.titan-submit:hover {
+  background: #ff5722;
+  transform: translateY(-2px);
+}
+
+.titan-cancel {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 7px;
+  background: transparent;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.titan-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.save-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #b9f6ca;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .user-section {
+    min-height: auto;
+    margin-top: 24px;
+    padding: 28px 12px;
+  }
+
+  .titan-form-box {
+    padding: 16px 6px;
+  }
+
+  .horizontal-form {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .titan-submit,
+  .save-message {
+    grid-column: auto;
+  }
+}

@@ -1,0 +1,89 @@
+.favorites {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.favorites h2 {
+  font-size: 1.8rem;
+  color: #1f2937;
+  font-weight: 700;
+  margin-bottom: 30px;
+}
+
+.no-items {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px;
+  font-size: 1.1rem;
+}
+
+.favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.favorite-item {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  overflow: hidden;
+  color: white;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.favorite-item:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+}
+
+.favorite-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+}
+
+.favorite-item h3 {
+  padding: 12px;
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.favorite-item p {
+  padding: 0 12px;
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.favorite-item button {
+  width: calc(100% - 24px);
+  margin: 12px;
+  padding: 8px;
+  background: white;
+  color: #667eea;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.favorite-item button:hover {
+  background: #f3f4f6;
+  transform: none;
+}
+
+@media (max-width: 768px) {
+  .favorites {
+    padding: 15px;
+  }
+
+  .favorites-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+}
