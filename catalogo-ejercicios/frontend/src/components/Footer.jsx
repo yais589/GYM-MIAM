@@ -3,55 +3,74 @@ import '../styles/Footer.css'
 function Footer({ language }) {
   const translations = {
     es: {
-      about: 'Acerca de',
-      contact: 'Contacto',
-      privacy: 'Privacidad',
-      terms: 'Términos',
-      copyright: '© 2024 Catálogo de Ejercicios. Todos los derechos reservados.',
-      description: 'Tu plataforma de confianza para descubrir y practicar ejercicios.'
+      description: 'Construye tu mejor versión. Entrena fuerte, vive mejor.',
+      quickLinks: 'Enlaces rápidos', schedule: 'Horario', contact: 'Contacto',
+      services: 'Servicios', coaches: 'Entrenadores', rates: 'Tarifas',
+      weekdays: 'Lunes - Viernes: 06:00 - 23:00', saturday: 'Sábados: 08:00 - 20:00',
+      sunday: 'Domingos: 09:00 - 14:00', privacy: 'Política de privacidad',
+      cookies: 'Política de cookies', legal: 'Aviso legal',
+      copyright: '© 2026 TitanGYM. Todos los derechos reservados.'
     },
     en: {
-      about: 'About',
-      contact: 'Contact',
-      privacy: 'Privacy',
-      terms: 'Terms',
-      copyright: '© 2024 Exercise Catalog. All rights reserved.',
-      description: 'Your trusted platform to discover and practice exercises.'
+      description: 'Build your best version. Train hard, live better.',
+      quickLinks: 'Quick links', schedule: 'Schedule', contact: 'Contact',
+      services: 'Services', coaches: 'Coaches', rates: 'Rates',
+      weekdays: 'Monday - Friday: 06:00 - 23:00', saturday: 'Saturday: 08:00 - 20:00',
+      sunday: 'Sunday: 09:00 - 14:00', privacy: 'Privacy policy',
+      cookies: 'Cookie policy', legal: 'Legal notice',
+      copyright: '© 2026 TitanGYM. All rights reserved.'
     }
   }
 
   const t = translations[language]
 
   return (
-    <footer className="footer">
-      <div className="footer-content">
-        <div className="footer-section">
-          <h3>Catálogo de Ejercicios</h3>
+    <footer className="site-footer">
+      <div className="footer-container">
+        <section className="footer-brand">
+          <h2>Titan<span>GYM</span></h2>
           <p>{t.description}</p>
-        </div>
-        
-        <div className="footer-section">
-          <h4>Navegación</h4>
-          <ul>
-            <li><a href="#about">{t.about}</a></li>
-            <li><a href="#contact">{t.contact}</a></li>
-            <li><a href="#privacy">{t.privacy}</a></li>
-            <li><a href="#terms">{t.terms}</a></li>
-          </ul>
-        </div>
+          <div className="social-links" aria-label="Redes sociales">
+            <a href="#instagram">Instagram</a>
+            <a href="#facebook">Facebook</a>
+            <a href="#tiktok">TikTok</a>
+            <a href="#youtube">YouTube</a>
+          </div>
+        </section>
 
-        <div className="footer-section">
-          <h4>Redes Sociales</h4>
+        <section>
+          <h3>{t.quickLinks}</h3>
           <ul>
-            <li><a href="#facebook">Facebook</a></li>
-            <li><a href="#twitter">Twitter</a></li>
-            <li><a href="#instagram">Instagram</a></li>
+            <li><a href="#inicio">Inicio</a></li>
+            <li><a href="#servicios">{t.services}</a></li>
+            <li><a href="#entrenadores">{t.coaches}</a></li>
+            <li><a href="#tarifas">{t.rates}</a></li>
+            <li><a href="#contacto">{t.contact}</a></li>
           </ul>
-        </div>
+        </section>
+
+        <section>
+          <h3>{t.schedule}</h3>
+          <p>{t.weekdays}</p><p>{t.saturday}</p><p>{t.sunday}</p>
+        </section>
+
+        <section id="contacto">
+          <h3>{t.contact}</h3>
+          <address>
+            <p>📍 Calle Titanes, 24, Madrid</p>
+            <p>📞 <a href="tel:+34900123456">900 123 456</a></p>
+            <p>✉️ <a href="mailto:info@titangym.com">info@titangym.com</a></p>
+          </address>
+        </section>
       </div>
       
       <div className="footer-bottom">
         <p>{t.copyright}</p>
+        <nav aria-label="Enlaces legales">
+          <a href="/politica-privacidad">{t.privacy}</a>
+          <a href="/politica-cookies">{t.cookies}</a>
+          <a href="/aviso-legal">{t.legal}</a>
+        </nav>
       </div>
     </footer>
   )

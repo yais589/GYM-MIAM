@@ -21,12 +21,14 @@ const environmentCredentials = process.env.FIREBASE_PROJECT_ID &&
   : null;
 
 let db = null;
+let auth = null;
 
 try {
   const credentials = fileCredentials || environmentCredentials;
   if (credentials) {
     admin.initializeApp({ credential: admin.credential.cert(credentials) });
     db = admin.firestore();
+    auth = admin.auth();
     console.log(`Firebase inicializado correctamente: ${credentials.project_id || credentials.projectId}`);
   } else {
     console.warn('Firebase no configurado. Se usaran los datos locales de respaldo.');
@@ -35,4 +37,4 @@ try {
   console.warn(`No se pudo conectar con Firebase: ${error.message}`);
 }
 
-export { db };
+export { db, auth };

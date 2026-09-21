@@ -2,16 +2,21 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import CategoryMenu from './CategoryMenu'
 import ExerciseCard from './ExerciseCard'
+import FavoritesDrawer from './FavoritesDrawer'
+import { getProfileFavorites, saveProfileFavorites } from '../services/profile'
 import '../styles/Catalog.css'
 
-function Catalog({ language, user }) {
+function Catalog({ language, user, onRequestAuth }) {
   const [exercises, setExercises] = useState([])
+  const [allExercises, setAllExercises] = useState([])
   const [categories, setCategories] = useState([])
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [favorites, setFavorites] = useState([])
+  const [favoriteSchedule, setFavoriteSchedule] = useState({})
   const [visibleCount, setVisibleCount] = useState(4)
+  const [favoritesOpen, setFavoritesOpen] = useState(false)
 
   const translations = {
     es: {
@@ -20,6 +25,7 @@ function Catalog({ language, user }) {
       loading: 'Cargando...',
       error: 'Error al cargar los ejercicios',
       showMore: 'Mostrar más'
+      ,categories: 'categorías', exercises: 'ejercicios', noExercises: 'No hay ejercicios disponibles'
     },
     en: {
       title: 'Exercise Catalog',
@@ -27,6 +33,7 @@ function Catalog({ language, user }) {
       loading: 'Loading...',
       error: 'Error loading exercises',
       showMore: 'Show more'
+      ,categories: 'categories', exercises: 'exercises', noExercises: 'No exercises available'
     }
   }
 
@@ -39,9 +46,27 @@ function Catalog({ language, user }) {
   })
 
   useEffect(() => {
+    if (!user) {
+      setFavorites([])
+      return
+    }
+    getProfileFavorites().then(data => {
+      setFavorites(Array.isArray(data) ? data : data.exerciseIds || [])
+      setFavoriteSchedule(Array.isArray(data) ? {} : data.schedule || {})
+    }).catch(() => {
+      setFavorites([])
+      setFavoriteSchedule({})
+    })
+  }, [user])
+
+  useEffect(() => {
     fetchCategories()
     fetchExercises()
   }, [])
+
+  useEffect(() => {
+    if (!user) setFavoriteSchedule({})
+  }, [user])
 
   useEffect(() => {
     if (selectedCategory) {
@@ -65,6 +90,7 @@ function Catalog({ language, user }) {
     try {
       setLoading(true)
       const response = await axios.get('/api/exercises')
+      setAllExercises(response.data)
       const exercisesByCategory = new Map()
 
       response.data.forEach(exercise => {
@@ -114,13 +140,31 @@ function Catalog({ language, user }) {
     setVisibleCount(currentCount => Math.min(currentCount + 4, exercises.length))
   }
 
-  const handleAddFavorite = (exerciseId) => {
-    if (favorites.includes(exerciseId)) {
-      setFavorites(favorites.filter(id => id !== exerciseId))
-    } else {
-      setFavorites([...favorites, exerciseId])
+  const handleAddFavorite = async (exercise) => {
+    const nextFavorites = favorites.includes(exercise.id)
+      ? favorites.filter(id => id !== exercise.id)
+      : [...favorites, exercise.id]
+    setFavorites(nextFavorites)
+    const nextSchedule = { ...favoriteSchedule }
+    if (favorites.includes(exercise.id)) delete nextSchedule[exercise.id]
+    setFavoriteSchedule(nextSchedule)
+    try { await saveProfileFavorites(nextFavorites, nextSchedule) } catch {
+      setFavorites(favorites)
+      setFavoriteSchedule(favoriteSchedule)
     }
   }
+
+  const handleScheduleChange = async (exerciseId, days) => {
+    const nextSchedule = { ...favoriteSchedule, [exerciseId]: days }
+    setFavoriteSchedule(nextSchedule)
+    try {
+      await saveProfileFavorites(favorites, nextSchedule)
+    } catch {
+      setFavoriteSchedule(favoriteSchedule)
+    }
+  }
+
+  const favoriteExercises = allExercises.filter(exercise => favorites.includes(exercise.id))
 
   return (
     <section className="catalog">
@@ -130,6 +174,10 @@ function Catalog({ language, user }) {
           selectedCategory={selectedCategory}
           onCategoryChange={handleCategoryChange}
           language={language}
+          onRequestAuth={() => {
+            if (!user) { onRequestAuth(); return false }
+            return true
+          }}
         />
         
         <div className="exercises-section">
@@ -138,13 +186,13 @@ function Catalog({ language, user }) {
               <span className="catalog-kicker">GYMPOWER / TRAINING LIBRARY</span>
               <h2>
                 {selectedCategory
-                  ? categories.find(category => String(category.name) === String(selectedCategory))?.name || selectedCategory
+                  ? ({ Brazos: language === 'en' ? 'Arms' : 'Brazos', Espalda: language === 'en' ? 'Back' : 'Espalda', Abdominales: language === 'en' ? 'Abs' : 'Abdominales', Hombros: language === 'en' ? 'Shoulders' : 'Hombros', Pantorrillas: language === 'en' ? 'Calves' : 'Pantorrillas', Pecho: language === 'en' ? 'Chest' : 'Pecho', Piernas: language === 'en' ? 'Legs' : 'Piernas', Cardio: 'Cardio' }[selectedCategory] || selectedCategory)
                   : t.allCategories}
               </h2>
             </div>
             <div className="catalog-summary" aria-label="Resumen del catálogo">
-              <span><strong>{categories.length}</strong> categorías</span>
-              <span><strong>{selectedCategory ? exercises.length : exercises.length}</strong> ejercicios</span>
+              <span><strong>{categories.length}</strong> {t.categories}</span>
+              <span><strong>{exercises.length}</strong> {t.exercises}</span>
             </div>
           </div>
 
@@ -160,6 +208,7 @@ function Catalog({ language, user }) {
                 user={user}
                 onAddFavorite={handleAddFavorite}
                 isFavorite={favorites.includes(exercise.id)}
+                onRequestAuth={onRequestAuth}
               />
             ))}
           </div>
@@ -171,10 +220,11 @@ function Catalog({ language, user }) {
           )}
 
           {!loading && exercises.length === 0 && (
-            <p className="no-exercises">No hay ejercicios disponibles</p>
+            <p className="no-exercises">{t.noExercises}</p>
           )}
         </div>
       </div>
+      {user && <FavoritesDrawer exercises={favoriteExercises} language={language} isOpen={favoritesOpen} schedule={favoriteSchedule} onToggle={() => setFavoritesOpen(open => !open)} onRemove={exerciseId => handleAddFavorite({ id: exerciseId })} onScheduleChange={handleScheduleChange} />}
     </section>
   )
 }

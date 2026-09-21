@@ -1,19 +1,40 @@
 import { useState, useEffect } from 'react'
+import { isSignInWithEmailLink, onAuthStateChanged, signOut } from 'firebase/auth'
 import Header from './components/Header'
 import Catalog from './components/Catalog'
 import UserSection from './components/UserSection'
 import Welcome from './components/Welcome'
 import LoginPage from './components/LoginPage'
 import Footer from './components/Footer'
-import { createUser, getExercises, updateUser } from './services/api'
+import CookieBanner from './components/CookieBanner'
+import LegalPage from './components/LegalPage'
+import { getExercises } from './services/api'
+import { auth } from './services/firebase'
+import { getProfile, saveProfile } from './services/profile'
 import './styles/App.css'
 
 function App() {
   const [language, setLanguage] = useState('es')
+  const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const [showLogin, setShowLogin] = useState(() => isSignInWithEmailLink(auth, window.location.href))
   const [exercises, setExercises] = useState([])
+  const legalPages = {
+    '/politica-privacidad': 'privacy',
+    '/politica-cookies': 'cookies',
+    '/aviso-legal': 'legal'
+  }
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, async (firebaseUser) => {
+      setAuthUser(firebaseUser)
+      if (firebaseUser) setShowLogin(false)
+      if (!firebaseUser) return setUser(null)
+      try { setUser(await getProfile()) } catch { setUser({ email: firebaseUser.email }) }
+    })
+  }, [])
 
   useEffect(() => {
     loadExercises()
@@ -30,14 +51,10 @@ function App() {
 
   const saveUser = async (userData) => {
     try {
-      const response = userData.id && !String(userData.id).match(/^\d{13}$/)
-        ? await updateUser(userData.id, userData)
-        : await createUser(userData)
-      const savedUser = response.data
+      const savedUser = await saveProfile(userData)
       setUser(savedUser)
       setIsEditing(false)
-      setIsCreating(false)
-      localStorage.setItem('user', JSON.stringify(savedUser))
+      setShowProfile(true)
     } catch (error) {
       console.error('Error saving user:', error)
       window.alert(language === 'es' ? 'No se pudo guardar el usuario en Firebase.' : 'The user could not be saved to Firebase.')
@@ -45,64 +62,70 @@ function App() {
   }
 
   const editUser = () => {
-    setIsEditing(true)
+    setShowProfile(true)
+    setIsEditing(!user?.name)
+    window.setTimeout(() => {
+      document.getElementById('profile-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 0)
   }
 
   const logout = () => {
     setUser(null)
     setIsEditing(false)
-    setIsCreating(false)
-    localStorage.removeItem('user')
+    setShowProfile(false)
+    signOut(auth)
   }
 
-  const selectUser = (selectedUser) => {
-    setUser(selectedUser)
-    setIsCreating(false)
-    localStorage.setItem('user', JSON.stringify(selectedUser))
+  const openProfile = () => {
+    setShowProfile(true)
+    setIsEditing(!user?.name)
+    window.setTimeout(() => {
+      document.getElementById('profile-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 0)
   }
 
-  const addUser = () => {
-    setUser(null)
-    setIsCreating(true)
+  const requestAuth = () => {
+    setShowLogin(true)
+    window.location.hash = 'login-box'
+    window.setTimeout(() => {
+      document.getElementById('login-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 0)
   }
 
-  if (!user && !isCreating) {
-    return (
-      <div className="app">
-        <LoginPage language={language} onSelect={selectUser} onCreate={addUser} />
-      </div>
-    )
+  const closeLogin = () => {
+    setShowLogin(false)
+    if (window.location.hash === '#login-box') window.history.replaceState({}, document.title, window.location.pathname)
   }
 
-  if (!user && isCreating) {
-    return (
-      <div className="app create-user-page">
-        <UserSection
-          user={null}
-          onUserChange={saveUser}
-          onCancel={() => setIsCreating(false)}
-          language={language}
-        />
-      </div>
-    )
+  const legalType = legalPages[window.location.pathname]
+
+  if (legalType) {
+    return <LegalPage type={legalType} language={language} />
   }
 
   return (
     <div className="app">
-      <Header language={language} setLanguage={setLanguage} />
+      <Header language={language} setLanguage={setLanguage} onProfile={authUser ? openProfile : requestAuth} />
 
-      <main className="main-content">
-        <Catalog language={language} user={user} />
-        <section id="profile-section" className="profile-section">
-          {user && !isEditing ? (
-            <Welcome user={user} language={language} onEdit={editUser} onLogout={logout} />
-          ) : isEditing ? (
-            <UserSection user={user} onUserChange={saveUser} language={language} />
-          ) : null}
-        </section>
-      </main>
+      {showLogin ? (
+        <LoginPage language={language} onSignedIn={setAuthUser} onBack={closeLogin} />
+      ) : (
+        <main className="main-content">
+          <Catalog language={language} user={authUser ? user : null} onRequestAuth={requestAuth} />
+          {authUser && showProfile && (
+            <section id="profile-section" className="profile-section">
+              {isEditing ? (
+                <UserSection user={user} onUserChange={saveUser} language={language} />
+              ) : (
+                <Welcome user={user} language={language} onEdit={() => setIsEditing(true)} onLogout={logout} />
+              )}
+            </section>
+          )}
+        </main>
+      )}
 
       <Footer language={language} />
+      <CookieBanner language={language} />
     </div>
   )
 }

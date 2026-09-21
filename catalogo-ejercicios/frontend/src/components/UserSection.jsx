@@ -8,8 +8,7 @@ const emptyForm = {
   city: '',
   postalCode: '',
   email: '',
-  password: '',
-  confirmPassword: '',
+  isMale: null,
   goal: 'Ganar masa',
   level: 'Principiante'
 }
@@ -32,8 +31,7 @@ function UserSection({ user, onUserChange, language, onCancel }) {
         city: 'Ciudad',
         postalCode: 'Código Postal',
         email: 'Email',
-        password: 'Contraseña',
-        confirmPassword: 'Confirmar contraseña',
+        gender: 'Sexo',
         goal: 'Objetivo',
         level: 'Nivel',
         namePlaceholder: 'Tu nombre',
@@ -45,7 +43,7 @@ function UserSection({ user, onUserChange, language, onCancel }) {
         submit: 'Guardar perfil',
         cancel: 'Volver al inicio de sesión',
         saved: 'Perfil guardado correctamente',
-        required: 'Completa el nombre, el email y la contraseña.'
+        required: 'Completa el nombre y el email.'
       }
     : {
         subtitle: 'Transform your body. Start today.',
@@ -55,8 +53,7 @@ function UserSection({ user, onUserChange, language, onCancel }) {
         city: 'City',
         postalCode: 'Postal code',
         email: 'Email',
-        password: 'Password',
-        confirmPassword: 'Confirm password',
+        gender: 'Gender',
         goal: 'Goal',
         level: 'Level',
         namePlaceholder: 'Your name',
@@ -68,7 +65,7 @@ function UserSection({ user, onUserChange, language, onCancel }) {
         submit: 'Save profile',
         cancel: 'Back to sign in',
         saved: 'Profile saved successfully',
-        required: 'Name, email and password are required.'
+        required: 'Name and email are required.'
       }
 
   const updateField = (event) => {
@@ -84,20 +81,7 @@ function UserSection({ user, onUserChange, language, onCancel }) {
       return
     }
 
-    if (!formData.password && !user?.id) {
-      window.alert(labels.required)
-      return
-    }
-    if (formData.password && formData.password !== formData.confirmPassword) {
-      window.alert(isSpanish ? 'Las contraseñas no coinciden.' : 'Passwords do not match.')
-      return
-    }
-
-    const userData = { ...formData, id: formData.id || Date.now() }
-    if (!userData.password && user?.Password) userData.password = user.Password
-    if (!userData.password && user?.password) userData.password = user.password
-    delete userData.confirmPassword
-    onUserChange(userData)
+    onUserChange({ ...formData })
     setSaved(true)
   }
 
@@ -133,13 +117,10 @@ function UserSection({ user, onUserChange, language, onCancel }) {
             <label htmlFor="email">{labels.email}</label>
             <input id="email" name="email" type="email" value={formData.email} onChange={updateField} placeholder={labels.emailPlaceholder} required />
           </div>
-          <div className="form-group">
-            <label htmlFor="password">{labels.password}</label>
-            <input id="password" name="password" type="password" value={formData.password || formData.Password || ''} onChange={updateField} autoComplete={user ? 'new-password' : 'new-password'} required={!user} />
-          </div>
-          <div className="form-group">
-            <label htmlFor="confirmPassword">{labels.confirmPassword}</label>
-            <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword || ''} onChange={updateField} autoComplete="new-password" required={!user} />
+          <div className="form-group gender-field">
+            <span>{labels.gender}</span>
+            <label><input type="radio" name="isMale" checked={formData.isMale === true} onChange={() => setFormData(current => ({ ...current, isMale: true }))} /> {isSpanish ? 'Hombre' : 'Male'}</label>
+            <label><input type="radio" name="isMale" checked={formData.isMale === false} onChange={() => setFormData(current => ({ ...current, isMale: false }))} /> {isSpanish ? 'Mujer' : 'Female'}</label>
           </div>
           <div className="form-group">
             <label htmlFor="goal">{labels.goal}</label>

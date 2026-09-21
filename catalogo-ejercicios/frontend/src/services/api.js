@@ -21,8 +21,6 @@ export const getCategories = () => api.get('/categories');
 export const getCategoryStats = () => api.get('/categories/stats');
 
 // ========== USUARIO ==========
-export const getUsers = () => api.get('/users');
-export const loginUser = (userId, password) => api.post('/login', { userId, password });
 export const createUser = (userData) => api.post('/user', userData);
 export const getUser = (id) => api.get(`/user/${id}`);
 export const updateUser = (id, userData) => api.put(`/user/${id}`, userData);

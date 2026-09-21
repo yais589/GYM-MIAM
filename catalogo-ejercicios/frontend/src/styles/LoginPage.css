@@ -3,7 +3,7 @@
   display: grid;
   place-items: center;
   padding: 48px 20px;
-  background: linear-gradient(rgba(7, 20, 24, 0.72), rgba(7, 20, 24, 0.82)), url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1800&q=85') center / cover;
+  background: linear-gradient(rgb(0, 0, 0), #0a80a3d1) ;
 }
 
 .login-box {
@@ -35,6 +35,62 @@
 .login-subtitle {
   margin: 0 0 26px;
   color: #d8e7df;
+}
+
+.login-back { margin-bottom: 18px; border: 0; color: #f0b27d; background: transparent; font: inherit; cursor: pointer; }
+.login-back:hover { color: #ffd0a8; }
+
+.email-login-form {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.google-login {
+  width: 100%;
+  padding: 13px 18px;
+  border: 1px solid rgba(255, 248, 237, 0.35);
+  border-radius: 8px;
+  color: #fff8ed;
+  background: rgba(255, 255, 255, 0.08);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.google-login:hover {
+  border-color: #f0b27d;
+  background: rgba(240, 178, 125, 0.2);
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 12px;
+  color: #d8e7df;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: rgba(255, 248, 237, 0.25);
+}
+
+.email-login-form label {
+  color: #d8e7df;
+  font-weight: 700;
+}
+
+.email-login-form input {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 7px;
+  color: #173b43;
+  font: inherit;
 }
 
 .login-users {

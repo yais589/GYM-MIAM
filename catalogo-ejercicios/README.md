@@ -267,18 +267,3 @@ FIREBASE_PROJECT_ID=catalogo-ejercicios
 Proxy: http://localhost:5000/api
 ```
 
-## 💬 Soporte y Contacto
-
-Para reportar bugs o sugerir mejoras, crea un issue en el repositorio.
-
-## 📄 Licencia
-
-MIT License - Libre para usar y modificar
-
-## 👨‍💻 Autor
-
-Proyecto desarrollado para la plataforma de ejercicios del grupo MIAM.
-
----
-
-**¡Haz ejercicio, mantente en forma y alcanza tus objetivos de salud! 💪**

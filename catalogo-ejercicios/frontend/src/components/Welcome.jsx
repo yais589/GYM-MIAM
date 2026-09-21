@@ -13,6 +13,7 @@ function Welcome({ user, language, onEdit, onLogout }) {
         email: 'Email',
         goal: 'Objetivo',
         level: 'Nivel',
+        gender: 'Sexo',
         edit: 'Editar perfil',
         logout: 'Cerrar sesión',
         empty: 'No indicado'
@@ -27,6 +28,7 @@ function Welcome({ user, language, onEdit, onLogout }) {
         email: 'Email',
         goal: 'Goal',
         level: 'Level',
+        gender: 'Gender',
         edit: 'Edit profile',
         logout: 'Log out',
         empty: 'Not specified'
@@ -58,6 +60,7 @@ function Welcome({ user, language, onEdit, onLogout }) {
           <p><strong>{labels.email}:</strong> {value('email')}</p>
           <p><strong>{labels.goal}:</strong> {value('goal')}</p>
           <p><strong>{labels.level}:</strong> {value('level')}</p>
+          <p><strong>{labels.gender}:</strong> {user?.isMale == null ? labels.empty : user.isMale ? (isSpanish ? 'Hombre' : 'Male') : (isSpanish ? 'Mujer' : 'Female')}</p>
         </div>
 
         <div className="welcome-actions">

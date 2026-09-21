@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
-import { db as firestoreDb } from './config/firebase.js';
+import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
 
 dotenv.config();
 
@@ -12,6 +12,20 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+const requireFirebaseUser = async (req, res, next) => {
+  if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
+  const authorization = req.headers.authorization || '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'Sesión requerida' });
+
+  try {
+    req.firebaseUser = await firebaseAuth.verifyIdToken(token);
+    next();
+  } catch {
+    res.status(401).json({ error: 'Sesión no válida' });
+  }
+};
 
 // ========== BASE DE DATOS LOCAL (Simulada) ==========
 const db = {
@@ -95,15 +109,19 @@ async function getExercises() {
     exercisesCache = exerciseSnapshot.docs.map((document) => {
       const data = document.data();
       const exerciseId = data.id ?? document.id;
+      const categoryId = data.category && typeof data.category === 'object'
+        ? data.category.id ?? data.category.pk
+        : data.category;
       return {
         ...data,
         id: exerciseId,
         name: data.name || data.title || `Ejercicio ${exerciseId}`,
-        description: data.description || 'Información disponible en la base de datos',
-        category: data.category == null
+        description: data.description || data.description_es || 'Información disponible en la base de datos',
+        category: categoryId == null
           ? 'general'
-          : categoryNames[data.category] || String(data.category),
+          : categoryNames[categoryId] || String(categoryId),
         difficulty: data.difficulty || 'intermediate',
+        instructions: data.instructions && data.instructions !== data.description ? data.instructions : '',
         image: data.image || imagesByExercise.get(String(exerciseId))?.image || null,
         gif: data.gif || imagesByExercise.get(String(exerciseId))?.gif || null
       };
@@ -193,47 +211,54 @@ app.get('/api/categories/stats', async (req, res) => {
 });
 
 // ========== RUTAS DE USUARIO ==========
-app.get('/api/users', async (req, res) => {
-  const withoutPassword = user => {
-    const { password, Password, confirmPassword, 'Confirm Password': confirmPasswordField, ...safeUser } = user;
-    return safeUser;
+app.get('/api/profile', requireFirebaseUser, async (req, res) => {
+  const profileReference = firestoreDb.collection('profiles').doc(req.firebaseUser.uid);
+  const snapshot = await profileReference.get();
+  res.json(snapshot.exists ? { id: snapshot.id, ...snapshot.data(), email: req.firebaseUser.email } : {
+    id: req.firebaseUser.uid,
+    email: req.firebaseUser.email
+  });
+});
+
+app.put('/api/profile', requireFirebaseUser, async (req, res) => {
+  const { password, confirmPassword, ...profile } = req.body;
+  const savedProfile = {
+    ...profile,
+    uid: req.firebaseUser.uid,
+    email: req.firebaseUser.email,
+    updatedAt: new Date()
   };
-  if (!firestoreDb) return res.json(Object.values(db.users).map(withoutPassword));
-
-  try {
-    const snapshot = await firestoreDb.collection('users').get();
-    res.json(snapshot.docs.map(document => withoutPassword({ ...document.data(), id: document.id })));
-  } catch (error) {
-    console.error(`Error leyendo usuarios de Firestore: ${error.message}`);
-    res.status(500).json({ error: 'No se pudieron cargar los usuarios' });
-  }
+  await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).set(savedProfile, { merge: true });
+  res.json({ id: req.firebaseUser.uid, ...savedProfile });
 });
 
-app.post('/api/login', async (req, res) => {
-  const { userId, password } = req.body;
-  if (!userId || !password) return res.status(400).json({ error: 'Usuario y contraseña son obligatorios' });
-
-  try {
-    const userDocument = firestoreDb
-      ? await firestoreDb.collection('users').doc(String(userId)).get()
-      : null;
-    const user = userDocument?.exists
-      ? { ...userDocument.data(), id: userDocument.id }
-      : db.users[userId];
-    const savedPassword = user?.password ?? user?.Password;
-
-    if (!user || String(savedPassword) !== String(password)) {
-      return res.status(401).json({ error: 'Contraseña incorrecta' });
-    }
-
-    res.json(user);
-  } catch (error) {
-    console.error(`Error iniciando sesión: ${error.message}`);
-    res.status(500).json({ error: 'No se pudo iniciar sesión' });
-  }
+app.get('/api/profile/favorites', requireFirebaseUser, async (req, res) => {
+  const snapshot = await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).get();
+  const profile = snapshot.exists ? snapshot.data() : {};
+  res.json({
+    exerciseIds: Array.isArray(profile.favoriteExerciseIds) ? profile.favoriteExerciseIds : [],
+    schedule: profile.favoriteSchedule && typeof profile.favoriteSchedule === 'object'
+      ? profile.favoriteSchedule
+      : {}
+  });
 });
 
-app.post('/api/user', async (req, res) => {
+app.put('/api/profile/favorites', requireFirebaseUser, async (req, res) => {
+  const exerciseIds = Array.isArray(req.body.exerciseIds) ? req.body.exerciseIds : [];
+  const schedule = req.body.schedule && typeof req.body.schedule === 'object' ? req.body.schedule : {};
+  const cleanedSchedule = Object.fromEntries(
+    Object.entries(schedule)
+      .filter(([exerciseId]) => exerciseIds.some(id => String(id) === exerciseId))
+      .map(([exerciseId, days]) => [exerciseId, Array.isArray(days) ? days : []])
+  );
+  await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).set({
+    favoriteExerciseIds: exerciseIds,
+    favoriteSchedule: cleanedSchedule
+  }, { merge: true });
+  res.json({ exerciseIds, schedule: cleanedSchedule });
+});
+
+app.post('/api/user', requireFirebaseUser, async (req, res) => {
   const userId = uuidv4();
   const newUser = {
     id: userId,
@@ -259,13 +284,13 @@ app.post('/api/user', async (req, res) => {
   }
 });
 
-app.get('/api/user/:id', (req, res) => {
+app.get('/api/user/:id', requireFirebaseUser, (req, res) => {
   const user = db.users[req.params.id];
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
   res.json(user);
 });
 
-app.put('/api/user/:id', async (req, res) => {
+app.put('/api/user/:id', requireFirebaseUser, async (req, res) => {
   const currentUser = db.users[req.params.id] || { id: req.params.id };
   db.users[req.params.id] = { ...currentUser, ...req.body, id: req.params.id };
 

@@ -5,6 +5,12 @@ const serviceAccount = require('./firebase-key.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
+function getNamedValues(items = []) {
+  return items
+    .map(item => typeof item === 'object' ? item.name || item.id : item)
+    .filter(Boolean);
+}
+
 async function main() {
   const exercisesSnapshot = await db.collection('exercise').get();
   const documentsById = new Map();
@@ -25,11 +31,17 @@ async function main() {
       const translation = exercise.translations?.find((item) => item.name) || exercise.translations?.[0];
       const image = exercise.images?.find((item) => item.image)?.image;
 
-      if (documentRef && (translation?.name || image)) {
+      if (documentRef) {
         updates.push({
           ref: documentRef,
           data: {
-            ...(translation?.name ? { name: translation.name, description: translation.description || '' } : {}),
+            name: translation?.name || `Ejercicio ${exercise.id}`,
+            description: translation?.description || '',
+            category: exercise.category?.id ?? exercise.category ?? null,
+            equipment: getNamedValues(exercise.equipment),
+            muscles: getNamedValues(exercise.muscles),
+            muscles_secondary: getNamedValues(exercise.muscles_secondary),
+            instructions: exercise.instructions || '',
             ...(image ? { image } : {})
           }
         });

@@ -1,0 +1,8 @@
+.auth-prompt-backdrop { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 20px; background: rgba(7, 20, 24, 0.68); backdrop-filter: blur(6px); }
+.auth-prompt { position: relative; width: min(460px, 100%); padding: 36px; border: 1px solid #f0b27d; border-radius: 16px; color: #fff8ed; background: #102d34; box-shadow: 0 24px 70px rgba(0,0,0,.35); text-align: center; }
+.auth-prompt-close { position: absolute; top: 12px; right: 14px; border: 0; color: #fff8ed; background: transparent; font-size: 1.8rem; cursor: pointer; }
+.auth-prompt-kicker { color: #f0b27d; font-size: .7rem; font-weight: 800; letter-spacing: .14em; }
+.auth-prompt h2 { margin: 12px 0 10px; font-size: 2rem; }
+.auth-prompt p { color: #d8e7df; line-height: 1.55; }
+.auth-prompt-action { width: 100%; margin-top: 16px; padding: 13px; border: 0; border-radius: 8px; color: #173b43; background: #f0b27d; font: inherit; font-weight: 800; cursor: pointer; }
+.auth-prompt-action:hover { background: #ffd0a8; }

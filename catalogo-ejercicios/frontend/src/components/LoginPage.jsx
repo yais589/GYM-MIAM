@@ -1,113 +1,113 @@
 import { useEffect, useState } from 'react'
-import { getUsers, loginUser } from '../services/api'
+import { GoogleAuthProvider, isSignInWithEmailLink, sendSignInLinkToEmail, signInWithEmailLink, signInWithPopup } from 'firebase/auth'
+import { auth } from '../services/firebase'
 import '../styles/LoginPage.css'
 
-function LoginPage({ language, onSelect, onCreate }) {
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
+function LoginPage({ language, onSignedIn, onBack }) {
+  const [email, setEmail] = useState(localStorage.getItem('emailForSignIn') || '')
+  const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [selectedUser, setSelectedUser] = useState(null)
-  const [password, setPassword] = useState('')
+  const [completingEmailLink, setCompletingEmailLink] = useState(false)
   const isSpanish = language === 'es'
+  const text = isSpanish
+    ? { title: 'Inicia sesión', subtitle: 'Te enviaremos un enlace seguro a tu correo electrónico.', email: 'Correo electrónico', send: 'Enviar enlace', complete: 'Completar inicio de sesión', google: 'Continuar con Google', or: 'o', sent: 'Revisa tu correo y pulsa el enlace para entrar.', enterEmail: 'Escribe el correo con el que solicitaste el enlace.', error: 'No se pudo iniciar sesión.', configError: 'El inicio de sesión por enlace no está habilitado en Firebase.', domainError: 'Este dominio no está autorizado en Firebase.', networkError: 'No se pudo conectar con Firebase.', quotaError: 'Se ha alcanzado el límite de envíos de Firebase. Espera un rato antes de volver a intentarlo.' }
+    : { title: 'Sign in', subtitle: 'We will send a secure sign-in link to your email.', email: 'Email address', send: 'Send sign-in link', complete: 'Complete sign-in', google: 'Continue with Google', or: 'or', sent: 'Check your email and open the link to continue.', enterEmail: 'Enter the email address used to request the link.', error: 'Could not sign in.', configError: 'Email link sign-in is not enabled in Firebase.', domainError: 'This domain is not authorized in Firebase.', networkError: 'Could not connect to Firebase.', quotaError: 'Firebase email quota has been reached. Please wait before trying again.' }
 
-  const labels = isSpanish
-    ? {
-        kicker: 'GYMPOWER / TITANGYM',
-        title: 'Inicia tu sesión',
-        subtitle: 'Selecciona tu usuario para continuar',
-        loading: 'Cargando usuarios...',
-        empty: 'No hay usuarios creados todavía.',
-        create: 'Crear nuevo usuario',
-        error: 'No se pudieron cargar los usuarios.'
-      }
-    : {
-        kicker: 'GYMPOWER / TITANGYM',
-        title: 'Sign in',
-        subtitle: 'Select your user to continue',
-        loading: 'Loading users...',
-        empty: 'There are no users yet.',
-        create: 'Create new user',
-        error: 'Users could not be loaded.'
-      }
-  const passwordLabel = isSpanish ? 'Contraseña' : 'Password'
-  const enterLabel = isSpanish ? 'Entrar' : 'Sign in'
-  const cancelLabel = isSpanish ? 'Cancelar' : 'Cancel'
-  const invalidPassword = isSpanish ? 'Contraseña incorrecta.' : 'Incorrect password.'
-
-  useEffect(() => {
-    getUsers()
-      .then(response => setUsers(response.data))
-      .catch(() => setError(labels.error))
-      .finally(() => setLoading(false))
-  }, [])
-
-  const getValue = (user, ...fields) => fields.map(field => user[field]).find(Boolean)
-
-  const displayValue = (value) => {
-    if (value == null) return ''
-    if (typeof value !== 'object') return String(value)
-    if (typeof value._seconds === 'number') {
-      return new Date(value._seconds * 1000).toLocaleDateString('es-ES')
-    }
-    return String(value.value ?? '')
+  const getAuthErrorMessage = (error) => {
+    console.error('Firebase sign-in error:', error.code, error.message)
+    if (error.code === 'auth/operation-not-allowed') return text.configError
+    if (error.code === 'auth/unauthorized-continue-uri' || error.code === 'auth/invalid-continue-uri') return text.domainError
+    if (error.code === 'auth/network-request-failed') return text.networkError
+    if (error.code === 'auth/quota-exceeded') return text.quotaError
+    return `${text.error} (${error.code || 'unknown-error'})`
   }
 
-  const normalizeUser = (user) => ({
-    ...user,
-    name: displayValue(getValue(user, 'name', 'Name')),
-    lastName: displayValue(getValue(user, 'lastName', 'Last Name')),
-    age: displayValue(getValue(user, 'age', 'Age')),
-    city: displayValue(getValue(user, 'city', 'City', 'country', 'Country')),
-    postalCode: displayValue(getValue(user, 'postalCode', 'Postal Code')),
-    email: displayValue(getValue(user, 'email', 'Gmail', 'gmail')),
-    goal: displayValue(getValue(user, 'goal', 'Goal')) || 'Ganar masa',
-    level: displayValue(getValue(user, 'level', 'Level')) || 'Principiante'
-  })
+  useEffect(() => {
+    const completeSignIn = async () => {
+      if (!isSignInWithEmailLink(auth, window.location.href)) return
+      const storedEmail = localStorage.getItem('emailForSignIn')
+      if (!storedEmail) {
+        setCompletingEmailLink(true)
+        return
+      }
+      try {
+        setLoading(true)
+        const result = await signInWithEmailLink(auth, storedEmail, window.location.href)
+        localStorage.removeItem('emailForSignIn')
+        window.history.replaceState({}, document.title, window.location.pathname)
+        onSignedIn(result.user)
+      } catch (error) {
+        setError(getAuthErrorMessage(error))
+      } finally {
+        setLoading(false)
+      }
+    }
+    completeSignIn()
+  }, [onSignedIn, text.email, text.error])
 
-  const handleLogin = async (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     try {
+      setLoading(true)
       setError('')
-      const response = await loginUser(selectedUser.id, password)
-      onSelect(normalizeUser(response.data))
-    } catch {
-      setError(invalidPassword)
+      if (completingEmailLink) {
+        const result = await signInWithEmailLink(auth, email, window.location.href)
+        localStorage.removeItem('emailForSignIn')
+        window.history.replaceState({}, document.title, window.location.pathname)
+        onSignedIn(result.user)
+        return
+      }
+      await sendSignInLinkToEmail(auth, email, {
+        url: window.location.origin,
+        handleCodeInApp: true
+      })
+      localStorage.setItem('emailForSignIn', email)
+      setSent(true)
+    } catch (error) {
+      setError(getAuthErrorMessage(error))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const result = await signInWithPopup(auth, new GoogleAuthProvider())
+      onSignedIn(result.user)
+    } catch (error) {
+      setError(getAuthErrorMessage(error))
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <main className="login-page">
-      <div className="login-box">
-        <span className="login-kicker">{labels.kicker}</span>
-        <h1>{labels.title}</h1>
-        <p className="login-subtitle">{labels.subtitle}</p>
-
-        {loading && <p className="login-status">{labels.loading}</p>}
-        {error && <p className="login-error" role="alert">{error}</p>}
-        {!loading && !error && (
-          <div className="login-users">
-            {users.length ? users.map(user => (
-              <button className="login-user" type="button" key={user.id} onClick={() => { setSelectedUser(user); setPassword(''); setError('') }}>
-                <strong>{getValue(user, 'name', 'Name') || 'Usuario'}</strong>
-                <span>{getValue(user, 'email', 'Gmail', 'gmail') || 'Sin email'}</span>
+    <main className="login-page" id="login-box">
+      <div className="login-box"  >
+        <span className="login-kicker">TITANGYM</span>
+        <h1>{text.title}</h1>
+        <p className="login-subtitle">{text.subtitle}</p>
+        {onBack && <button className="login-back" type="button" onClick={onBack}>{isSpanish ? 'Volver al catálogo' : 'Back to catalog'}</button>}
+        {sent ? <p className="login-status">{text.sent}</p> : (
+          <>
+            {!completingEmailLink && <>
+              <button className="google-login" type="button" onClick={handleGoogleSignIn} disabled={loading}>
+                {loading ? '...' : text.google}
               </button>
-            )) : <p className="login-status">{labels.empty}</p>}
-          </div>
+              <div className="login-divider"><span>{text.or}</span></div>
+            </>}
+            {completingEmailLink && <p className="login-status">{text.enterEmail}</p>}
+            <form className="email-login-form" onSubmit={handleSubmit}>
+              <label htmlFor="sign-in-email">{text.email}</label>
+              <input id="sign-in-email" type="email" value={email} onChange={event => setEmail(event.target.value)} required autoComplete="email" />
+              <button className="login-create" type="submit" disabled={loading}>{loading ? '...' : completingEmailLink ? text.complete : text.send}</button>
+            </form>
+          </>
         )}
-
-        {selectedUser && (
-          <form className="login-password-form" onSubmit={handleLogin}>
-            <p>{getValue(selectedUser, 'name', 'Name') || 'Usuario'}</p>
-            <label htmlFor="login-password">{passwordLabel}</label>
-            <input id="login-password" type="password" value={password} onChange={event => setPassword(event.target.value)} required autoFocus />
-            <button className="login-create" type="submit">{enterLabel}</button>
-            <button className="login-cancel" type="button" onClick={() => setSelectedUser(null)}>{cancelLabel}</button>
-          </form>
-        )}
-
-        <button className="login-create" type="button" onClick={onCreate}>
-          + {labels.create}
-        </button>
+        {error && <p className="login-error" role="alert">{error}</p>}
       </div>
     </main>
   )
