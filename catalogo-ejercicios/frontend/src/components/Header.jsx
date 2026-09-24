@@ -1,6 +1,6 @@
 import '../styles/Header.css'
 
-function Header({ language, setLanguage, onProfile }) {
+function Header({ language, setLanguage, onProfile, onShop }) {
   const slogan = language === 'es'
     ? 'Entrena · Supera · Evoluciona'
     : 'Train · Overcome · Evolve'
@@ -17,6 +17,17 @@ function Header({ language, setLanguage, onProfile }) {
             className={language === 'en' ? 'active' : ''}
             onClick={() => setLanguage('en')}
           >EN</button>
+          {onShop && (
+            <button
+              className="shop-button"
+              type="button"
+              onClick={onShop}
+              aria-label={language === 'es' ? 'Abrir tienda' : 'Open shop'}
+              title={language === 'es' ? 'Tienda' : 'Shop'}
+            >
+              🛒
+            </button>
+          )}
           {onProfile && (
             <button
               className="profile-button"

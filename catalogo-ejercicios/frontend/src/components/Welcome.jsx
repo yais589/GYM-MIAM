@@ -1,6 +1,6 @@
 import '../styles/Welcome.css'
 
-function Welcome({ user, language, onEdit, onLogout }) {
+function Welcome({ user, language, onEdit, onLogout, plan, onChangePlan }) {
   const isSpanish = language === 'es'
   const labels = isSpanish
     ? {
@@ -11,12 +11,17 @@ function Welcome({ user, language, onEdit, onLogout }) {
         city: 'Ciudad',
         postalCode: 'Código Postal',
         email: 'Email',
-        goal: 'Objetivo',
-        level: 'Nivel',
+        trainingLocation: 'Lugar de entrenamiento',
+        nutritionTracking: 'Seguimiento nutricional',
         gender: 'Sexo',
         edit: 'Editar perfil',
         logout: 'Cerrar sesión',
-        empty: 'No indicado'
+        empty: 'No indicado',
+        currentPlan: 'Plan actual',
+        changePlan: 'Cambiar plan',
+        planFree: 'Gratuito',
+        planPro: 'Pro (3 meses)',
+        planElite: 'Elite (12 meses)'
       }
     : {
         subtitle: 'Your personal information',
@@ -26,12 +31,17 @@ function Welcome({ user, language, onEdit, onLogout }) {
         city: 'City',
         postalCode: 'Postal code',
         email: 'Email',
-        goal: 'Goal',
-        level: 'Level',
+        trainingLocation: 'Training location',
+        nutritionTracking: 'Nutrition tracking',
         gender: 'Gender',
         edit: 'Edit profile',
         logout: 'Log out',
-        empty: 'Not specified'
+        empty: 'Not specified',
+        currentPlan: 'Current plan',
+        changePlan: 'Change plan',
+        planFree: 'Free',
+        planPro: 'Pro (3 months)',
+        planElite: 'Elite (12 months)'
       }
 
   const value = (field) => {
@@ -58,13 +68,20 @@ function Welcome({ user, language, onEdit, onLogout }) {
           <p><strong>{labels.city}:</strong> {value('city')}</p>
           <p><strong>{labels.postalCode}:</strong> {value('postalCode')}</p>
           <p><strong>{labels.email}:</strong> {value('email')}</p>
-          <p><strong>{labels.goal}:</strong> {value('goal')}</p>
-          <p><strong>{labels.level}:</strong> {value('level')}</p>
           <p><strong>{labels.gender}:</strong> {user?.isMale == null ? labels.empty : user.isMale ? (isSpanish ? 'Hombre' : 'Male') : (isSpanish ? 'Mujer' : 'Female')}</p>
+          <p><strong>{labels.trainingLocation}:</strong> {value('trainingLocation')}</p>
+          <p><strong>{labels.nutritionTracking}:</strong> {user?.followsDiet ? (isSpanish ? 'Sigo una dieta' : 'I follow a diet') : (isSpanish ? 'No sigo una dieta' : "I don't follow a diet")}</p>
+          <p>
+            <strong>{labels.currentPlan}:</strong>{' '}
+            {plan === 'elite' ? labels.planElite : plan === 'pro' ? labels.planPro : plan === 'free' ? labels.planFree : labels.empty}
+          </p>
         </div>
 
         <div className="welcome-actions">
           <button className="welcome-edit-btn" type="button" onClick={onEdit}>{labels.edit}</button>
+          {onChangePlan && (
+            <button className="welcome-plan-btn" type="button" onClick={onChangePlan}>{labels.changePlan}</button>
+          )}
           <button className="welcome-logout-btn" type="button" onClick={onLogout}>{labels.logout}</button>
         </div>
       </div>

@@ -9,8 +9,8 @@ const emptyForm = {
   postalCode: '',
   email: '',
   isMale: null,
-  goal: 'Ganar masa',
-  level: 'Principiante'
+  trainingLocation: 'Casa',
+  followsDiet: false
 }
 
 function UserSection({ user, onUserChange, language, onCancel }) {
@@ -32,8 +32,11 @@ function UserSection({ user, onUserChange, language, onCancel }) {
         postalCode: 'Código Postal',
         email: 'Email',
         gender: 'Sexo',
-        goal: 'Objetivo',
-        level: 'Nivel',
+        trainingLocation: 'Lugar de entrenamiento',
+        home: 'Casa',
+        gym: 'Gimnasio',
+        nutritionTracking: 'Seguimiento nutricional',
+        followsDiet: '¿Sigo una dieta?',
         namePlaceholder: 'Tu nombre',
         lastNamePlaceholder: 'Tus apellidos',
         agePlaceholder: 'Tu edad',
@@ -54,8 +57,11 @@ function UserSection({ user, onUserChange, language, onCancel }) {
         postalCode: 'Postal code',
         email: 'Email',
         gender: 'Gender',
-        goal: 'Goal',
-        level: 'Level',
+        trainingLocation: 'Training location',
+        home: 'Home',
+        gym: 'Gym',
+        nutritionTracking: 'Nutrition tracking',
+        followsDiet: 'Do I follow a diet?',
         namePlaceholder: 'Your name',
         lastNamePlaceholder: 'Your last name',
         agePlaceholder: 'Your age',
@@ -69,8 +75,8 @@ function UserSection({ user, onUserChange, language, onCancel }) {
       }
 
   const updateField = (event) => {
-    const { name, value } = event.target
-    setFormData(current => ({ ...current, [name]: value }))
+    const { name, value, type, checked } = event.target
+    setFormData(current => ({ ...current, [name]: type === 'checkbox' ? checked : value }))
     setSaved(false)
   }
 
@@ -123,21 +129,16 @@ function UserSection({ user, onUserChange, language, onCancel }) {
             <label><input type="radio" name="isMale" checked={formData.isMale === false} onChange={() => setFormData(current => ({ ...current, isMale: false }))} /> {isSpanish ? 'Mujer' : 'Female'}</label>
           </div>
           <div className="form-group">
-            <label htmlFor="goal">{labels.goal}</label>
-            <select id="goal" name="goal" value={formData.goal} onChange={updateField}>
-              <option>Ganar masa</option>
-              <option>Perder grasa</option>
-              <option>Mejorar resistencia</option>
+            <label htmlFor="trainingLocation">{labels.trainingLocation}</label>
+            <select id="trainingLocation" name="trainingLocation" value={formData.trainingLocation} onChange={updateField}>
+              <option value="Casa">{labels.home}</option>
+              <option value="Gimnasio">{labels.gym}</option>
             </select>
           </div>
-          <div className="form-group">
-            <label htmlFor="level">{labels.level}</label>
-            <select id="level" name="level" value={formData.level} onChange={updateField}>
-              <option>Principiante</option>
-              <option>Intermedio</option>
-              <option>Avanzado</option>
-            </select>
-          </div>
+          <label className="preference-checkbox">
+            <input type="checkbox" name="followsDiet" checked={Boolean(formData.followsDiet)} onChange={updateField} />
+            <span>{labels.nutritionTracking}: {labels.followsDiet}</span>
+          </label>
           <button className="titan-submit" type="submit">{labels.submit}</button>
           {onCancel && <button className="titan-cancel" type="button" onClick={onCancel}>{labels.cancel}</button>}
           {saved && <p className="save-message" role="status">{labels.saved}</p>}

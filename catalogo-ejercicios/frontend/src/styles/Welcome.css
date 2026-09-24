@@ -86,6 +86,23 @@
   cursor: pointer;
 }
 
+.welcome-plan-btn {
+  flex: 1;
+  margin-top: 24px;
+  padding: 13px 18px;
+  border: 1px solid #f0b27d;
+  border-radius: 8px;
+  color: #f0b27d;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.welcome-plan-btn:hover {
+  background: rgba(240, 178, 125, 0.2);
+}
+
 .welcome-logout-btn:hover {
   border-color: #f0b27d;
   background: rgba(240, 178, 125, 0.2);
@@ -100,7 +117,8 @@
     flex-direction: column;
   }
 
-  .welcome-logout-btn {
+  .welcome-logout-btn,
+  .welcome-plan-btn {
     margin-top: 0;
   }
 

@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const API_URL = '/api';
+const STORE_API_URL = import.meta.env.VITE_STORE_API_URL || 'https://api-titangym.onrender.com/storeitems';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -45,3 +46,21 @@ export const getRecommendations = (userId) => api.get(`/recommendations/${userId
 
 // ========== HEALTH CHECK ==========
 export const healthCheck = () => api.get('/health');
+
+// ========== TIENDA ==========
+export const getStoreItems = async () => {
+  const response = await fetch(STORE_API_URL);
+  if (!response.ok) throw new Error('Store catalog request failed');
+
+  const data = await response.json();
+  const items = Array.isArray(data) ? data : data.items || data.data;
+  if (!Array.isArray(items)) throw new Error('Invalid store catalog response');
+
+  return items.map((item, index) => ({
+    ...item,
+    id: item.id ?? item.sku ?? `${item.name || 'product'}-${index}`,
+    price: Number(item.price) || 0,
+    stock: Math.max(0, Number.parseInt(item.stock, 10) || 0),
+    isAvailable: item.isAvailable !== false
+  }));
+};

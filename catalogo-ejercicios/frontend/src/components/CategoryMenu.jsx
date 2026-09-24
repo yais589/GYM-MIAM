@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import '../styles/CategoryMenu.css'
 
-function CategoryMenu({ categories, selectedCategory, onCategoryChange, language, onRequestAuth }) {
+function CategoryMenu({ categories, selectedCategory, onCategoryChange, language, onRequestAuth, requiresAuth = true, isAuthenticated = false }) {
   const [isOpen, setIsOpen] = useState(false)
 
   const translations = {
@@ -16,7 +16,10 @@ function CategoryMenu({ categories, selectedCategory, onCategoryChange, language
   const t = translations[language]
 
   const handleCategoryClick = (category) => {
-    if (!onRequestAuth()) return
+    if (requiresAuth && !isAuthenticated) {
+      onRequestAuth()
+      return
+    }
     onCategoryChange(category === selectedCategory ? null : category)
     setIsOpen(false)
   }
@@ -43,7 +46,7 @@ function CategoryMenu({ categories, selectedCategory, onCategoryChange, language
             className={`menu-item ${String(selectedCategory) === String(category.name) ? 'active' : ''}`}
             onClick={() => handleCategoryClick(category.name)}
           >
-            {category.icon} {({ Brazos: 'Arms', Espalda: 'Back', Abdominales: 'Abs', Hombros: 'Shoulders', Pantorrillas: 'Calves', Pecho: 'Chest', Piernas: 'Legs', Cardio: 'Cardio' }[category.name] || category.name)}
+            {category.icon} {category.labels?.[language] || ({ Brazos: 'Arms', Espalda: 'Back', Abdominales: 'Abs', Hombros: 'Shoulders', Pantorrillas: 'Calves', Pecho: 'Chest', Piernas: 'Legs', Cardio: 'Cardio' }[category.name] || category.name)}
           </button>
         ))}
       </div>
