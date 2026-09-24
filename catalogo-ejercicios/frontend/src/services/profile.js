@@ -25,7 +25,21 @@ export const saveProfile = (profile) => profileRequest('/api/profile', {
 })
 
 export const getProfileFavorites = () => profileRequest('/api/profile/favorites')
-export const saveProfileFavorites = (exerciseIds, schedule = {}) => profileRequest('/api/profile/favorites', {
+export const saveProfileFavorites = (exerciseIds, schedule = {}, nutritionIds, nutritionSchedule) => {
+  const body = { exerciseIds, schedule }
+  if (nutritionIds !== undefined) {
+    body.nutritionIds = nutritionIds
+    body.nutritionSchedule = nutritionSchedule || {}
+  }
+  return profileRequest('/api/profile/favorites', {
+    method: 'PUT',
+    body: JSON.stringify(body)
+  })
+}
+
+export const getProfileCart = () => profileRequest('/api/profile/cart')
+
+export const saveProfileCart = (items) => profileRequest('/api/profile/cart', {
   method: 'PUT',
-  body: JSON.stringify({ exerciseIds, schedule })
+  body: JSON.stringify({ items })
 })

@@ -177,6 +177,10 @@
   font-weight: 600;
 }
 
+body:has(.exercise-modal-backdrop) {
+  overflow: hidden;
+}
+
 .exercise-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -184,6 +188,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
+  overflow-y: auto;
   background: rgba(8, 26, 31, 0.76);
   backdrop-filter: blur(7px);
 }
@@ -193,8 +198,8 @@
   display: grid;
   grid-template-columns: minmax(260px, 0.85fr) minmax(320px, 1.15fr);
   width: min(960px, 100%);
-  max-height: min(720px, 92vh);
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
   border: 1px solid #d88b51;
   border-radius: 16px;
   background: #fffdf8;

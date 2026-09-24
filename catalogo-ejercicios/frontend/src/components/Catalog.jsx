@@ -6,7 +6,7 @@ import FavoritesDrawer from './FavoritesDrawer'
 import { getProfileFavorites, saveProfileFavorites } from '../services/profile'
 import '../styles/Catalog.css'
 
-function Catalog({ language, user, onRequestAuth }) {
+function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
   const [exercises, setExercises] = useState([])
   const [allExercises, setAllExercises] = useState([])
   const [categories, setCategories] = useState([])
@@ -169,15 +169,14 @@ function Catalog({ language, user, onRequestAuth }) {
   return (
     <section className="catalog">
       <div className="catalog-container">
-        <CategoryMenu 
+        <CategoryMenu
           categories={categories}
           selectedCategory={selectedCategory}
           onCategoryChange={handleCategoryChange}
           language={language}
-          onRequestAuth={() => {
-            if (!user) { onRequestAuth(); return false }
-            return true
-          }}
+          requiresAuth={true}
+          isAuthenticated={!!user}
+          onRequestAuth={onRequestAuth}
         />
         
         <div className="exercises-section">
@@ -224,7 +223,7 @@ function Catalog({ language, user, onRequestAuth }) {
           )}
         </div>
       </div>
-      {user && <FavoritesDrawer exercises={favoriteExercises} language={language} isOpen={favoritesOpen} schedule={favoriteSchedule} onToggle={() => setFavoritesOpen(open => !open)} onRemove={exerciseId => handleAddFavorite({ id: exerciseId })} onScheduleChange={handleScheduleChange} />}
+      {user && <FavoritesDrawer exercises={favoriteExercises} language={language} isOpen={favoritesOpen} schedule={favoriteSchedule} onToggle={() => setFavoritesOpen(open => !open)} onRemove={exerciseId => handleAddFavorite({ id: exerciseId })} onScheduleChange={handleScheduleChange} canUseCalendar={canUseCalendar} />}
     </section>
   )
 }

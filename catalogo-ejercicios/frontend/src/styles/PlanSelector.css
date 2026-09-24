@@ -1,0 +1,398 @@
+.plan-selector {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  background: #01050a; /* Fallback for container if needed, though they exist in main app context */
+}
+
+/* Override body/app bg specifically for plans view to be dark */
+.app:has(.plan-selector) {
+  background: #090f14;
+}
+
+/* Grid */
+.plan-cards {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+  justify-content: center;
+}
+
+/* Individual card */
+.plan-card {
+  flex: 1;
+  max-width: 380px;
+  background: #0c141f;
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease;
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.2);
+}
+
+.plan-card:hover {
+  transform: translateY(-4px);
+}
+
+.plan-card--highlight {
+  border-color: rgba(56, 234, 103, 0.4);
+}
+
+/* Header (Tags and Badges) */
+.plan-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  min-height: 40px;
+  margin-bottom: 8px;
+}
+
+.plan-card-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.plan-card-tag .dot {
+  width: 8px;
+  height: 8px;
+  background: #38ea67;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(56, 234, 103, 0.6);
+}
+
+.plan-card-badge {
+  background: rgba(30, 58, 138, 0.3);
+  color: #60a5fa;
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+}
+
+.plan-card--highlight .plan-card-badge {
+  background: rgba(21, 128, 61, 0.3);
+  color: #38ea67;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+/* Pricing */
+.plan-card-pricing {
+  margin-bottom: 24px;
+}
+
+.pricing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.plan-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.plan-price-group {
+  text-align: right;
+}
+
+.plan-price-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.plan-price-currency {
+  font-size: 1rem;
+  color: #94a3b8;
+}
+
+.plan-price-extra {
+  text-align: right;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.plan-price-extra.highlight {
+  color: #94a3b8;
+}
+
+.plan-price-extra.highlight .highlight-word {
+  color: #38ea67;
+}
+
+/* Description */
+.plan-card-description {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+
+/* Features List */
+.plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 32px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: #e2e8f0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.plan-features li strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.feature-icon {
+  font-size: 1.1rem;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.feature-icon[style*="#38ea67"] {
+  text-shadow: 0 0 10px rgba(56, 234, 103, 0.4);
+}
+
+.feature-icon[style*="#6b7280"] {
+  border: 1px solid #475569;
+  font-size: 0.75rem;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+/* Footer & CTA */
+.plan-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.plan-cta-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: none;
+  flex-shrink: 0;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.plan-cta-circle::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at center, rgba(134, 239, 172, 0.8) 0%, #22c55e 70%);
+  z-index: 1;
+}
+
+.plan-cta-circle:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 40px rgba(34, 197, 94, 0.6);
+}
+
+.cta-text {
+  position: relative;
+  z-index: 2;
+  color: #064e3b;
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.plan-cta-subtitle {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* Responsive */
+@media (max-width: 960px) {
+  .plan-cards {
+    flex-wrap: wrap;
+  }
+  .plan-card {
+    min-width: 320px;
+  }
+}
+
+@media (max-width: 600px) {
+  .plan-cards {
+    flex-direction: column;
+  }
+  .plan-card {
+    max-width: 100%;
+  }
+  .plan-card-pricing .pricing-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .plan-price-group, .plan-price-extra {
+    text-align: left;
+  }
+}
+
+/* Nutrition upsell: keep the locked view in the same dark premium theme */
+.app:has(.nutrition-upsell) {
+  background: #090f14;
+}
+
+.app:has(.nutrition-upsell) .main-content {
+  background: #090f14;
+}
+
+.nutrition-upsell.plan-selector {
+  width: 100%;
+  max-width: none;
+  min-height: 620px;
+  margin: 0;
+  padding: clamp(32px, 6vw, 72px) clamp(16px, 4vw, 56px);
+  background: #090f14;
+  color: #e2e8f0;
+  border-radius: 18px;
+}
+
+.nutrition-upsell .plan-selector-hero {
+  max-width: 620px;
+  margin: 0 auto 34px;
+  text-align: center;
+}
+
+.nutrition-upsell .plan-kicker {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: #38ea67;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.nutrition-upsell .plan-selector-hero h1 {
+  margin: 0 0 12px;
+  color: #f8fafc;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.1;
+}
+
+.nutrition-upsell .plan-selector-hero p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.nutrition-upsell .plan-cards {
+  display: block;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.nutrition-upsell .plan-card {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 32px;
+  background: #101b29;
+  border: 1px solid rgba(56, 234, 103, 0.28);
+  border-radius: 20px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28), inset 0 0 40px rgba(0, 0, 0, 0.16);
+}
+
+.nutrition-upsell .plan-icon {
+  margin-bottom: 10px;
+  font-size: 2.5rem;
+}
+
+.nutrition-upsell .plan-name {
+  color: #f8fafc;
+  font-size: 1.45rem;
+}
+
+.nutrition-upsell .plan-price {
+  margin: 12px 0 4px;
+  color: #38ea67;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.nutrition-upsell .plan-permanence {
+  color: #94a3b8;
+}
+
+.nutrition-upsell .plan-features {
+  margin: 18px 0 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.nutrition-upsell .plan-features li {
+  color: #e2e8f0;
+}
+
+.nutrition-upsell .plan-cta {
+  width: 100%;
+  padding: 14px 20px;
+  border: 1px solid #22c55e;
+  border-radius: 12px;
+  background: #22c55e;
+  color: #064e3b;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.28);
+}
+
+.nutrition-upsell .plan-cta:hover {
+  background: #4ade80;
+  color: #052e16;
+}
+
+.nutrition-upsell .plan-note {
+  margin-top: 24px;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .nutrition-upsell .plan-card {
+    padding: 24px 20px;
+  }
+}

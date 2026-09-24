@@ -66,6 +66,51 @@
   font-size: 1rem;
 }
 
+.nutrition-categories {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  border: 1px solid #e1ebe8;
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.72);
+}
+
+.nutrition-categories-label {
+  flex: 0 0 auto;
+  color: #173b43;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.nutrition-category-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nutrition-category {
+  padding: 8px 13px;
+  border: 1px solid #cdded8;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #3e5559;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.nutrition-category:hover,
+.nutrition-category.active {
+  border-color: #d88b51;
+  background: #173b43;
+  color: #fff8ed;
+}
+
 .exercises-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
@@ -133,6 +178,11 @@
     flex-direction: column;
   }
 
+  .nutrition-categories {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .catalog-summary {
     justify-content: flex-start;
   }
@@ -141,6 +191,7 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
     gap: 15px;
   }
+
 }
 
 @media (max-width: 520px) {
