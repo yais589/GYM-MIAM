@@ -115,3 +115,16 @@ Antes de publicar, ejecuta:
 cd catalogo-ejercicios/frontend
 npm run build
 ```
+
+## Publicar el frontend en Vercel
+
+El repositorio incluye `vercel.json` en la raiz porque la aplicacion Vite esta dentro de `catalogo-ejercicios/frontend`.
+
+En Vercel, importa el repositorio sin cambiar la raiz del proyecto. La configuracion ejecuta automaticamente:
+
+```bash
+npm --prefix catalogo-ejercicios/frontend install
+npm --prefix catalogo-ejercicios/frontend run build
+```
+
+El backend Express no se ejecuta con este despliegue estatico. Debe estar desplegado en un servicio compatible, por ejemplo Render, y el frontend debe apuntar a su URL publica para que funcionen la API, perfiles, favoritos y la IA.
