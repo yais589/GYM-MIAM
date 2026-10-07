@@ -1,5 +1,22 @@
 import { useState, useEffect } from 'react'
 
+export const ADMIN_EMAIL = 'yais589@vidalibarraquer.net'
+
+export function isAdminAccount(userOrEmail) {
+  const email = userOrEmail && typeof userOrEmail === 'object' ? userOrEmail.email : userOrEmail
+  return String(email || '').trim().toLowerCase() === ADMIN_EMAIL
+}
+
+const ADMIN_PERMS = {
+  exercises: true,
+  favoritesAdd: true,
+  favoritesCalendar: true,
+  nutrition: true,
+  nutritionDiscount: true,
+  ai: true,
+  shopDiscount: 5
+}
+
 // Permisos por plan
 export const PLAN_PERMS = {
   free: {
@@ -69,12 +86,20 @@ export function setNutritionPurchased(uid, value = true) {
 }
 
 // Hook principal
-export function usePlan(authUser) {
-  const [plan, setPlanState] = useState(null)
+export function usePlan(authUser, isAdmin = false) {
+  const adminUser = Boolean(isAdmin || isAdminAccount(authUser))
+  const [plan, setPlanState] = useState(adminUser ? 'admin' : null)
   const [nutritionPurchased, setNutritionPurchasedState] = useState(false)
-  const [planReady, setPlanReady] = useState(!authUser)
+  const [planReady, setPlanReady] = useState(!authUser || adminUser)
 
   useEffect(() => {
+    if (adminUser) {
+      setPlanState('admin')
+      setNutritionPurchasedState(true)
+      setPlanReady(true)
+      return
+    }
+
     if (!authUser) {
       setPlanState(null)
       setNutritionPurchasedState(false)
@@ -84,7 +109,6 @@ export function usePlan(authUser) {
 
     setPlanReady(false)
 
-    // Si había un plan pendiente (eligió antes de logarse), lo asignamos
     const pending = getPendingPlan()
     const saved = getUserPlan(authUser.uid)
 
@@ -95,15 +119,15 @@ export function usePlan(authUser) {
     } else if (saved) {
       setPlanState(saved)
     } else {
-      // Usuario logado sin plan → mostrar selector
       setPlanState(null)
     }
 
     setNutritionPurchasedState(getNutritionPurchased(authUser.uid))
     setPlanReady(true)
-  }, [authUser])
+  }, [authUser, adminUser])
 
   const changePlan = (planId) => {
+    if (adminUser) return
     if (authUser) {
       setUserPlan(authUser.uid, planId)
     } else {
@@ -113,14 +137,18 @@ export function usePlan(authUser) {
   }
 
   const unlockNutrition = () => {
+    if (adminUser) {
+      setNutritionPurchasedState(true)
+      return
+    }
     if (authUser) {
       setNutritionPurchased(authUser.uid, true)
       setNutritionPurchasedState(true)
     }
   }
 
-  const perms = plan ? PLAN_PERMS[plan] : null
-  const hasNutrition = Boolean(perms?.nutrition || nutritionPurchased)
+  const perms = adminUser ? ADMIN_PERMS : (plan && PLAN_PERMS[plan] ? PLAN_PERMS[plan] : null)
+  const hasNutrition = Boolean(adminUser || perms?.nutrition || nutritionPurchased)
 
   return { plan, perms, changePlan, nutritionPurchased, hasNutrition, unlockNutrition, planReady }
 }

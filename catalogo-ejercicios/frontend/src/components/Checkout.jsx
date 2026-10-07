@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import '../styles/Checkout.css'
 
-function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippingEnabled = true }) {
+function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippingEnabled = true, isAdmin = false }) {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -101,6 +101,8 @@ function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippi
   }
 
   const validateForm = () => {
+    if (isAdmin) return true
+
     const newErrors = {}
 
     if (!formData.fullName.trim()) newErrors.fullName = 'Required'
@@ -126,12 +128,13 @@ function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippi
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!validateForm()) return
+    if (!isAdmin && !validateForm()) return
 
     setProcessing(true)
 
-    // Simular procesamiento de pago
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    if (!isAdmin) {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
 
     const orderNumber = 'ORD-' + Date.now()
     alert(`${t.orderSuccess}\n${t.orderNumber}: ${orderNumber}`)
@@ -164,7 +167,7 @@ function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippi
         <div className="checkout-form">
           <h1>{t.title}</h1>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate={isAdmin}>
             <section className="form-section">
               <h2>{t.shippingInfo}</h2>
 

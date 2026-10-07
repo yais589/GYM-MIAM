@@ -16,13 +16,14 @@ import NutritionUpsell from './components/NutritionUpsell'
 import Checkout from './components/Checkout'
 import { auth } from './services/firebase'
 import { getProfile, saveProfile } from './services/profile'
-import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan } from './services/usePlan'
+import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan, isAdminAccount } from './services/usePlan'
 import './styles/App.css'
 
 function App() {
   const [language, setLanguage] = useState('es')
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [showLogin, setShowLogin] = useState(() => isSignInWithEmailLink(auth, window.location.href))
@@ -32,7 +33,8 @@ function App() {
   const [showAI, setShowAI] = useState(false)
   const [showPlanSelector, setShowPlanSelector] = useState(false)
 
-  const { plan, perms, changePlan, hasNutrition, unlockNutrition, planReady } = usePlan(authUser)
+  const adminUser = Boolean(isAdmin || isAdminAccount(authUser) || isAdminAccount(user))
+  const { plan, perms, changePlan, hasNutrition, unlockNutrition, planReady } = usePlan(authUser, adminUser)
 
   const legalPages = {
     '/politica-privacidad': 'privacy',
@@ -44,20 +46,35 @@ function App() {
     return onAuthStateChanged(auth, async (firebaseUser) => {
       setAuthUser(firebaseUser)
       if (firebaseUser) setShowLogin(false)
-      if (!firebaseUser) return setUser(null)
-      try { setUser(await getProfile()) } catch { setUser({ email: firebaseUser.email }) }
+      if (!firebaseUser) {
+        setUser(null)
+        setIsAdmin(false)
+        return
+      }
+      try {
+        const profile = await getProfile()
+        setUser(profile)
+        setIsAdmin(Boolean(profile?.isAdmin))
+      } catch {
+        setUser({ email: firebaseUser.email })
+        setIsAdmin(false)
+      }
     })
   }, [])
 
   // Si el usuario se ha logado y aún no tiene un plan, mostrar el selector
   useEffect(() => {
     if (!planReady) return
+    if (adminUser) {
+      setShowPlanSelector(false)
+      return
+    }
     if (authUser && plan === null) {
       setShowPlanSelector(true)
     } else if (authUser && plan) {
       setShowPlanSelector(false)
     }
-  }, [authUser, plan, planReady])
+  }, [authUser, plan, planReady, adminUser])
 
   const saveUser = async (userData) => {
     try {
@@ -67,12 +84,15 @@ function App() {
       setShowProfile(true)
     } catch (error) {
       console.error('Error saving user:', error)
-      window.alert(language === 'es' ? 'No se pudo guardar el usuario en Firebase.' : 'The user could not be saved to Firebase.')
+      window.alert(language === 'es'
+        ? `No se pudo guardar el perfil: ${error.message}`
+        : `The profile could not be saved: ${error.message}`)
     }
   }
 
   const logout = () => {
     setUser(null)
+    setIsAdmin(false)
     setIsEditing(false)
     setShowProfile(false)
     setShowPlanSelector(false)
@@ -82,7 +102,7 @@ function App() {
   const openProfile = () => {
     setShowShop(false)
     setShowProfile(true)
-    setIsEditing(!user?.name)
+    setIsEditing(adminUser ? false : !user?.name)
     window.setTimeout(() => {
       document.getElementById('profile-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 0)
@@ -115,6 +135,13 @@ function App() {
   }
 
   const openNutritionCheckout = () => {
+    if (adminUser) {
+      unlockNutrition()
+      setShowPlanSelector(false)
+      setShowNutritionCheckout(false)
+      setActiveTab('nutrition')
+      return
+    }
     setShowPlanSelector(false)
     setShowNutritionCheckout(true)
   }
@@ -138,10 +165,10 @@ function App() {
   // ──────────────────────────────────────────────
   // RENDER: selector de planes (sin sesión o recién logado sin plan)
   // ──────────────────────────────────────────────
-  if (showPlanSelector && !showLogin) {
+  if (showPlanSelector && !showLogin && !adminUser) {
     return (
       <div className="app">
-        <Header language={language} setLanguage={setLanguage} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && plan ? setShowShop(true) : handleGuestInteraction()} />
+        <Header language={language} setLanguage={setLanguage} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
         <main className="main-content">
           <PlanSelector
             language={language}
@@ -156,7 +183,7 @@ function App() {
 
   return (
     <div className="app">
-      <Header language={language} setLanguage={setLanguage} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && plan ? setShowShop(true) : handleGuestInteraction()} />
+      <Header language={language} setLanguage={setLanguage} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
 
       {showShop ? (
         <Shop
@@ -165,6 +192,7 @@ function App() {
           onRequestAuth={handleGuestInteraction}
           onBackToApp={() => setShowShop(false)}
           shopDiscount={perms?.shopDiscount || 0}
+          isAdmin={adminUser}
         />
       ) : showNutritionCheckout ? (
         <Checkout
@@ -177,6 +205,7 @@ function App() {
           }]}
           language={language}
           shippingEnabled={false}
+          isAdmin={adminUser}
           onBack={() => setShowNutritionCheckout(false)}
           onComplete={() => {
             unlockNutrition()
@@ -203,7 +232,7 @@ function App() {
               }}
             >
               {tabs[language].nutrition}
-              {authUser && !hasNutrition && (
+              {authUser && !hasNutrition && !adminUser && (
                 <span className="tab-lock">🔒</span>
               )}
             </button>
@@ -217,7 +246,7 @@ function App() {
                 canUseCalendar={perms?.favoritesCalendar || false}
               />
             )}
-            {activeTab === 'nutrition' && hasNutrition && (
+            {activeTab === 'nutrition' && (hasNutrition || adminUser) && (
               <Nutrition
                 language={language}
                 user={authUser ? user : null}
@@ -225,7 +254,7 @@ function App() {
                 canUseCalendar={perms?.favoritesCalendar || false}
               />
             )}
-            {activeTab === 'nutrition' && !hasNutrition && (
+            {activeTab === 'nutrition' && !hasNutrition && !adminUser && (
               <NutritionUpsell
                 language={language}
                 plan={plan}
@@ -236,7 +265,7 @@ function App() {
             {authUser && showProfile && (
               <section id="profile-section" className="profile-section">
                 {isEditing ? (
-                  <UserSection user={user} onUserChange={saveUser} language={language} />
+                  <UserSection user={user} onUserChange={saveUser} language={language} isAdmin={adminUser} />
                 ) : (
                   <Welcome
                     user={user}
@@ -244,7 +273,7 @@ function App() {
                     onEdit={() => setIsEditing(true)}
                     onLogout={logout}
                     plan={plan}
-                    onChangePlan={() => setShowPlanSelector(true)}
+                    onChangePlan={adminUser ? undefined : () => setShowPlanSelector(true)}
                   />
                 )}
               </section>
@@ -257,19 +286,13 @@ function App() {
       <CookieBanner language={language} />
 
       {!showShop && !showLogin && !showPlanSelector && authUser && perms?.ai && (
-        <button className="ai-float-button" onClick={() => setShowAI(true)} title="Asistente IA">
+        <button className="ai-float-button" onClick={() => setShowAI(true)} title={language === 'es' ? 'Asistente IA TITAN' : 'TITAN AI Assistant'}>
           <span className="ai-icon">🤖</span>
+          <span className="ai-ping" />
         </button>
       )}
 
-      {!showShop && !showLogin && !showPlanSelector && (!authUser || !perms?.ai) && (
-        <button className="ai-float-button ai-float-button--locked" onClick={handleGuestInteraction} title={language === 'es' ? 'Asistente IA (Plan Elite)' : 'AI Assistant (Elite Plan)'}>
-          <span className="ai-icon">🤖</span>
-          <span className="ai-lock-badge">👑</span>
-        </button>
-      )}
-
-      {showAI && <AIAssistant language={language} onClose={() => setShowAI(false)} />}
+      {showAI && <AIAssistant language={language} onClose={() => setShowAI(false)} perms={perms} hasNutrition={hasNutrition} />}
 
     </div>
   )

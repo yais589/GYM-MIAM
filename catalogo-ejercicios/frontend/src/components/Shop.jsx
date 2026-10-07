@@ -17,7 +17,7 @@ const categoryIcons = {
   Quemagrasas: '🔥'
 }
 
-function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0 }) {
+function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, isAdmin = false }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -164,6 +164,7 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0 }) 
         cart={cart}
         language={language}
         shopDiscount={shopDiscount}
+        isAdmin={isAdmin}
         onBack={() => setShowCheckout(false)}
         onComplete={() => {
           setCart([])

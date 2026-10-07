@@ -3,7 +3,7 @@ import axios from 'axios'
 import CategoryMenu from './CategoryMenu'
 import ExerciseCard from './ExerciseCard'
 import FavoritesDrawer from './FavoritesDrawer'
-import { getProfileFavorites, saveProfileFavorites } from '../services/profile'
+import { getProfileFavorites, saveProfileFavorites, isFavorited, sameId } from '../services/profile'
 import '../styles/Catalog.css'
 
 function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
@@ -46,17 +46,23 @@ function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
   })
 
   useEffect(() => {
-    if (!user) {
-      setFavorites([])
-      return
+    const loadFavorites = () => {
+      if (!user) {
+        setFavorites([])
+        setFavoriteSchedule({})
+        return
+      }
+      getProfileFavorites().then(data => {
+        setFavorites(Array.isArray(data) ? data : data.exerciseIds || [])
+        setFavoriteSchedule(Array.isArray(data) ? {} : data.schedule || {})
+      }).catch(() => {
+        setFavorites([])
+        setFavoriteSchedule({})
+      })
     }
-    getProfileFavorites().then(data => {
-      setFavorites(Array.isArray(data) ? data : data.exerciseIds || [])
-      setFavoriteSchedule(Array.isArray(data) ? {} : data.schedule || {})
-    }).catch(() => {
-      setFavorites([])
-      setFavoriteSchedule({})
-    })
+    loadFavorites()
+    window.addEventListener('titan:favorites-updated', loadFavorites)
+    return () => window.removeEventListener('titan:favorites-updated', loadFavorites)
   }, [user])
 
   useEffect(() => {
@@ -141,12 +147,13 @@ function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
   }
 
   const handleAddFavorite = async (exercise) => {
-    const nextFavorites = favorites.includes(exercise.id)
-      ? favorites.filter(id => id !== exercise.id)
-      : [...favorites, exercise.id]
+    const alreadySaved = isFavorited(favorites, exercise.id)
+    const nextFavorites = alreadySaved
+      ? favorites.filter(id => !sameId(id, exercise.id))
+      : [...favorites, String(exercise.id)]
     setFavorites(nextFavorites)
     const nextSchedule = { ...favoriteSchedule }
-    if (favorites.includes(exercise.id)) delete nextSchedule[exercise.id]
+    if (alreadySaved) delete nextSchedule[exercise.id]
     setFavoriteSchedule(nextSchedule)
     try { await saveProfileFavorites(nextFavorites, nextSchedule) } catch {
       setFavorites(favorites)
@@ -164,7 +171,7 @@ function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
     }
   }
 
-  const favoriteExercises = allExercises.filter(exercise => favorites.includes(exercise.id))
+  const favoriteExercises = allExercises.filter(exercise => isFavorited(favorites, exercise.id))
 
   return (
     <section className="catalog">
@@ -206,7 +213,7 @@ function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
                 language={language}
                 user={user}
                 onAddFavorite={handleAddFavorite}
-                isFavorite={favorites.includes(exercise.id)}
+                isFavorite={isFavorited(favorites, exercise.id)}
                 onRequestAuth={onRequestAuth}
               />
             ))}
