@@ -1,6 +1,6 @@
-.shop {
+﻿.shop {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f4f6f2 0%, #e8ebe6 100%);
+  background: linear-gradient(135deg, #edf7f5 0%, #e8ebe6 100%);
 }
 
 .shop-top-bar {
@@ -11,25 +11,25 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 40px;
-  background: white;
-  border-bottom: 2px solid #dce7e3;
+  background: var(--surface-color);
+  border-bottom: 2px solid #cfe4e1;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .shop-title {
   font-size: 2rem;
   font-weight: 900;
-  color: #173b43;
+  color: #0f3b42;
   margin: 0;
   letter-spacing: 0.05em;
 }
 
 .back-to-app {
   padding: 12px 24px;
-  background: linear-gradient(135deg, #173b43 0%, #2d5a65 100%);
+  background: linear-gradient(135deg, #0f3b42 0%, #17616a 100%);
   border: none;
   border-radius: 8px;
-  color: white;
+  color: var(--gray-100);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -37,26 +37,26 @@
 
 .back-to-app:hover {
   transform: translateX(-3px);
-  box-shadow: 0 4px 12px rgba(23, 59, 67, 0.3);
+  box-shadow: 0 4px 12px rgba(12, 21, 17, 0.3);
 }
 
 .cart-button {
   padding: 12px 24px;
-  background: #d88b51;
+  background: var(--teal-deep);
   border: none;
   border-radius: 8px;
-  color: white;
+  color: var(--gray-100);
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(216, 139, 81, 0.3);
+  box-shadow: 0 4px 12px rgba(15, 59, 66, 0.28);
 }
 
 .cart-button:hover {
-  background: #c67a42;
+  background: var(--teal-mid);
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(216, 139, 81, 0.4);
+  box-shadow: 0 6px 16px rgba(15, 59, 66, 0.36);
 }
 
 .shop-content {
@@ -69,7 +69,7 @@
 }
 
 .shop-sidebar {
-  background: white;
+  background: var(--surface-color);
   padding: 30px;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -80,7 +80,7 @@
 
 .shop-sidebar h3 {
   margin: 0 0 20px 0;
-  color: #173b43;
+  color: #0f3b42;
   font-size: 1.2rem;
   font-weight: 700;
 }
@@ -95,24 +95,24 @@
   border-radius: 10px;
   text-align: left;
   font-weight: 500;
-  color: #6b7280;
+  color: #557875;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .category-btn:hover {
-  background: #f4f6f2;
-  color: #173b43;
+  background: #edf7f5;
+  color: #0f3b42;
 }
 
 .category-btn.active {
-  background: linear-gradient(135deg, #173b43 0%, #2d5a65 100%);
-  color: white;
-  border-color: #173b43;
+  background: linear-gradient(135deg, #0f3b42 0%, #17616a 100%);
+  color: var(--gray-100);
+  border-color: #0f3b42;
 }
 
 .shop-main {
-  background: white;
+  background: var(--surface-color);
   padding: 40px;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -122,8 +122,8 @@
   margin-bottom: 20px;
   padding: 12px 18px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #173b43 0%, #2d5a65 100%);
-  color: #fff8ed;
+  background: linear-gradient(135deg, #0f3b42 0%, #17616a 100%);
+  color: #f3f6ef;
   font-weight: 700;
   font-size: 0.95rem;
   letter-spacing: 0.02em;
@@ -132,11 +132,11 @@
 .shop-summary {
   margin-bottom: 30px;
   font-size: 1.1rem;
-  color: #6b7280;
+  color: #557875;
 }
 
 .shop-summary strong {
-  color: #173b43;
+  color: #0f3b42;
   font-weight: 700;
 }
 
@@ -144,7 +144,7 @@
 .shop-empty,
 .shop-error {
   padding: 60px 20px;
-  color: #6b7280;
+  color: #557875;
   font-size: 1.1rem;
   text-align: center;
 }
@@ -152,7 +152,7 @@
 .shop-error {
   border: 1px solid #f3c3c0;
   border-radius: 12px;
-  background: #fff6f5;
+  background: #fff4f1;
   color: #b6534d;
 }
 
@@ -161,8 +161,8 @@
 }
 
 .shop-error button {
-  background: #173b43;
-  color: white;
+  background: #0f3b42;
+  color: var(--gray-100);
   font-weight: 700;
 }
 

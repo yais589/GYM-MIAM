@@ -1,10 +1,10 @@
-.user-picker {
+﻿.user-picker {
   width: 100%;
   margin: 36px 0 30px;
   padding: 36px 20px;
   border-radius: 18px;
   background: linear-gradient(rgba(7, 20, 24, 0.7), rgba(7, 20, 24, 0.78)), url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1600&q=80') center / cover;
-  color: #fff;
+  color: var(--gray-100);
   box-shadow: 0 18px 42px rgba(16, 45, 52, 0.2);
 }
 
@@ -21,13 +21,13 @@
 
 .user-picker-box h2 {
   margin: 10px 0 8px;
-  color: #fff;
+  color: var(--gray-100);
   font-size: clamp(2rem, 5vw, 3.4rem);
 }
 
 .user-picker-box > p {
   margin: 0 0 24px;
-  color: #d8e7df;
+  color: #b6d4d0;
 }
 
 .user-list {
@@ -45,7 +45,7 @@
   padding: 15px 17px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 8px;
-  color: #fff8ed;
+  color: #f3f6ef;
   background: rgba(255, 255, 255, 0.1);
   font: inherit;
   text-align: left;
@@ -53,17 +53,17 @@
 }
 
 .user-choice:hover {
-  border-color: #f0b27d;
-  background: rgba(240, 178, 125, 0.2);
+  border-color: #8fe3d8;
+  background: rgba(143, 227, 216, 0.2);
 }
 
 .user-choice span {
-  color: #d8e7df;
+  color: #b6d4d0;
   font-size: 0.9rem;
 }
 
 .user-picker-empty {
-  color: #d8e7df;
+  color: #b6d4d0;
   text-align: center;
 }
 
@@ -73,15 +73,15 @@
   padding: 13px 18px;
   border: 0;
   border-radius: 8px;
-  color: #173b43;
-  background: #f0b27d;
+  color: #0f3b42;
+  background: #8fe3d8;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
 .add-user-btn:hover {
-  background: #ffd0a8;
+  background: #dff59f;
 }
 
 @media (max-width: 600px) {

@@ -1,17 +1,17 @@
-.login-page {
+﻿.login-page {
   min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 48px 20px;
-  background: linear-gradient(rgb(0, 0, 0), #0a80a3d1) ;
+  background: linear-gradient(rgb(0, 0, 0), #8fe3d8) ;
 }
 
 .login-box {
   width: min(560px, 100%);
   padding: clamp(28px, 6vw, 52px);
-  border: 1px solid rgba(255, 248, 237, 0.25);
+  border: 1px solid rgba(243, 246, 239, 0.25);
   border-radius: 16px;
-  color: #fff8ed;
+  color: #f3f6ef;
   background: rgba(16, 45, 52, 0.86);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
@@ -19,7 +19,7 @@
 }
 
 .login-kicker {
-  color: #f0b27d;
+  color: #8fe3d8;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -27,18 +27,18 @@
 
 .login-box h1 {
   margin: 12px 0 8px;
-  color: #fff8ed;
+  color: #f3f6ef;
   font-size: clamp(2.3rem, 7vw, 4rem);
   line-height: 1;
 }
 
 .login-subtitle {
   margin: 0 0 26px;
-  color: #d8e7df;
+  color: #b6d4d0;
 }
 
-.login-back { margin-bottom: 18px; border: 0; color: #f0b27d; background: transparent; font: inherit; cursor: pointer; }
-.login-back:hover { color: #ffd0a8; }
+.login-back { margin-bottom: 18px; border: 0; color: #8fe3d8; background: transparent; font: inherit; cursor: pointer; }
+.login-back:hover { color: #dff59f; }
 
 .email-login-form {
   display: grid;
@@ -49,9 +49,9 @@
 .google-login {
   width: 100%;
   padding: 13px 18px;
-  border: 1px solid rgba(255, 248, 237, 0.35);
+  border: 1px solid rgba(243, 246, 239, 0.35);
   border-radius: 8px;
-  color: #fff8ed;
+  color: #f3f6ef;
   background: rgba(255, 255, 255, 0.08);
   font: inherit;
   font-weight: 700;
@@ -59,8 +59,8 @@
 }
 
 .google-login:hover {
-  border-color: #f0b27d;
-  background: rgba(240, 178, 125, 0.2);
+  border-color: #8fe3d8;
+  background: rgba(143, 227, 216, 0.2);
 }
 
 .login-divider {
@@ -68,7 +68,7 @@
   align-items: center;
   gap: 12px;
   margin: 18px 0 12px;
-  color: #d8e7df;
+  color: #b6d4d0;
 }
 
 .login-divider::before,
@@ -76,11 +76,11 @@
   content: '';
   height: 1px;
   flex: 1;
-  background: rgba(255, 248, 237, 0.25);
+  background: rgba(243, 246, 239, 0.25);
 }
 
 .email-login-form label {
-  color: #d8e7df;
+  color: #b6d4d0;
   font-weight: 700;
 }
 
@@ -89,7 +89,7 @@
   padding: 13px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 7px;
-  color: #173b43;
+  color: #0f3b42;
   font: inherit;
 }
 
@@ -107,9 +107,9 @@
   justify-content: space-between;
   gap: 16px;
   padding: 15px 17px;
-  border: 1px solid rgba(255, 248, 237, 0.2);
+  border: 1px solid rgba(243, 246, 239, 0.2);
   border-radius: 8px;
-  color: #fff8ed;
+  color: #f3f6ef;
   background: rgba(255, 255, 255, 0.1);
   font: inherit;
   text-align: left;
@@ -117,19 +117,19 @@
 }
 
 .login-user:hover {
-  border-color: #f0b27d;
-  background: rgba(240, 178, 125, 0.2);
+  border-color: #8fe3d8;
+  background: rgba(143, 227, 216, 0.2);
 }
 
 .login-user span {
-  color: #d8e7df;
+  color: #b6d4d0;
   font-size: 0.9rem;
 }
 
 .login-status,
 .login-error {
   margin: 18px 0;
-  color: #d8e7df;
+  color: #b6d4d0;
 }
 
 .login-error {
@@ -142,8 +142,8 @@
   padding: 13px 18px;
   border: 0;
   border-radius: 8px;
-  color: #173b43;
-  background: #f0b27d;
+  color: #0f3b42;
+  background: #8fe3d8;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -152,20 +152,20 @@
 .login-password-form {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid rgba(255, 248, 237, 0.2);
+  border-top: 1px solid rgba(243, 246, 239, 0.2);
   text-align: left;
 }
 
 .login-password-form p {
   margin: 0 0 12px;
-  color: #f0b27d;
+  color: #8fe3d8;
   font-weight: 700;
 }
 
 .login-password-form label {
   display: block;
   margin-bottom: 6px;
-  color: #d8e7df;
+  color: #b6d4d0;
 }
 
 .login-password-form input {
@@ -173,22 +173,22 @@
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 7px;
-  color: #173b43;
+  color: #0f3b42;
 }
 
 .login-cancel {
   width: 100%;
   margin-top: 10px;
   padding: 11px;
-  border: 1px solid rgba(255, 248, 237, 0.35);
+  border: 1px solid rgba(243, 246, 239, 0.35);
   border-radius: 8px;
-  color: #fff8ed;
+  color: #f3f6ef;
   background: transparent;
   cursor: pointer;
 }
 
 .login-create:hover {
-  background: #ffd0a8;
+  background: #dff59f;
 }
 
 @media (max-width: 600px) {

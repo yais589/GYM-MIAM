@@ -160,10 +160,16 @@ function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
             <div>
               <span className="catalog-kicker">{t.kicker}</span>
               <h2>{t.title}</h2>
+              <p className="catalog-lead">{language === 'es' ? 'Convierte tus datos en decisiones más inteligentes.' : 'Turn your data into smarter decisions.'}</p>
             </div>
             <div className="catalog-summary">
               <span><strong>{ingredients.length}</strong> {t.ingredients}</span>
             </div>
+          </div>
+          <div className="catalog-insight" aria-label="Información nutricional">
+            <div><span className="insight-dot" /> <strong>{language === 'es' ? 'BASE NUTRICIONAL ACTIVA' : 'NUTRITION DATABASE ONLINE'}</strong><small>{language === 'es' ? 'Valores por 100 g' : 'Values per 100 g'}</small></div>
+            <div><strong>{ingredients.length || '—'}</strong><small>{language === 'es' ? 'alimentos disponibles' : 'available foods'}</small></div>
+            <div><strong>SMART</strong><small>{language === 'es' ? 'elige mejor cada día' : 'make better choices'}</small></div>
           </div>
           <CategoryMenu
             categories={categories}

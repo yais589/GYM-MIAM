@@ -21,6 +21,7 @@ import './styles/App.css'
 
 function App() {
   const [language, setLanguage] = useState('es')
+  const [theme, setTheme] = useState(() => localStorage.getItem('titan-theme') || 'light')
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -153,6 +154,11 @@ function App() {
 
   const legalType = legalPages[window.location.pathname]
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('titan-theme', theme)
+  }, [theme])
+
   if (legalType) {
     return <LegalPage type={legalType} language={language} />
   }
@@ -168,7 +174,7 @@ function App() {
   if (showPlanSelector && !showLogin && !adminUser) {
     return (
       <div className="app">
-        <Header language={language} setLanguage={setLanguage} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
+        <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
         <main className="main-content">
           <PlanSelector
             language={language}
@@ -183,7 +189,7 @@ function App() {
 
   return (
     <div className="app">
-      <Header language={language} setLanguage={setLanguage} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
+      <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
 
       {showShop ? (
         <Shop
@@ -222,7 +228,12 @@ function App() {
               className={`tab-btn ${activeTab === 'exercises' ? 'active' : ''}`}
               onClick={() => authUser ? setActiveTab('exercises') : handleGuestInteraction()}
             >
-              {tabs[language].exercises}
+              <span className="tab-icon" aria-hidden="true">◈</span>
+              <span className="tab-copy">
+                <small>{language === 'es' ? 'MÓDULO 01 / RENDIMIENTO' : 'MODULE 01 / PERFORMANCE'}</small>
+                <strong>{tabs[language].exercises}</strong>
+                <em>{language === 'es' ? 'Entrena con precisión' : 'Train with precision'}</em>
+              </span>
             </button>
             <button
               className={`tab-btn ${activeTab === 'nutrition' ? 'active' : ''}`}
@@ -231,10 +242,12 @@ function App() {
                 setActiveTab('nutrition')
               }}
             >
-              {tabs[language].nutrition}
-              {authUser && !hasNutrition && !adminUser && (
-                <span className="tab-lock">🔒</span>
-              )}
+              <span className="tab-icon" aria-hidden="true">✦</span>
+              <span className="tab-copy">
+                <small>{language === 'es' ? 'MÓDULO 02 / NUTRICIÓN' : 'MODULE 02 / NUTRITION'}</small>
+                <strong>{tabs[language].nutrition} {authUser && !hasNutrition && !adminUser && <span className="tab-lock">🔒</span>}</strong>
+                <em>{language === 'es' ? 'Optimiza tu energía' : 'Optimize your energy'}</em>
+              </span>
             </button>
           </nav>
           <main className="main-content">
