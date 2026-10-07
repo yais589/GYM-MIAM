@@ -1,16 +1,7 @@
-const DEFAULT_ADMIN_EMAIL = 'yais589@vidalibarraquer.net';
-
-export function normalizeEmail(email) {
-  return String(email || '').trim().toLowerCase();
-}
-
-export function getAdminEmail(env = process.env) {
-  return normalizeEmail(env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL);
-}
-
-export function isAdminEmail(user, env = process.env) {
-  const email = user && typeof user === 'object' ? user.email : user;
-  return Boolean(email) && normalizeEmail(email) === getAdminEmail(env);
+export async function isAdminUser(user, firestore) {
+  if (!user?.uid || !firestore) return false;
+  const snapshot = await firestore.collection('admins').doc(user.uid).get();
+  return snapshot.exists && snapshot.data()?.enabled !== false;
 }
 
 export function getRequestedUserId(req) {
@@ -69,5 +60,3 @@ export function parseWorkoutPayload(body = {}, isAdmin = false) {
     }
   };
 }
-
-export { DEFAULT_ADMIN_EMAIL };

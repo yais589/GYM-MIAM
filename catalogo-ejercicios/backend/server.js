@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
-import { isAdminEmail, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
+import { isAdminUser, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { generateChatReply } from './services/aiAssistant.js';
@@ -43,13 +43,14 @@ process.on('unhandledRejection', (reason) => {
 
 const requireFirebaseUser = async (req, res, next) => {
   if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
+  if (!firestoreDb) return res.status(503).json({ error: 'Firestore no está configurado' });
   const authorization = req.headers.authorization || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Sesión requerida' });
 
   try {
     req.firebaseUser = await firebaseAuth.verifyIdToken(token);
-    req.isAdmin = isAdminEmail(req.firebaseUser);
+    req.isAdmin = await isAdminUser(req.firebaseUser, firestoreDb);
     next();
   } catch {
     res.status(401).json({ error: 'Sesión no válida' });
@@ -59,13 +60,14 @@ const requireFirebaseUser = async (req, res, next) => {
 // Middleware que verifica autenticación y expone isAdmin para uso posterior
 const requireAuthWithAdmin = async (req, res, next) => {
   if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
+  if (!firestoreDb) return res.status(503).json({ error: 'Firestore no está configurado' });
   const authorization = req.headers.authorization || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Sesión requerida' });
 
   try {
     req.firebaseUser = await firebaseAuth.verifyIdToken(token);
-    req.isAdmin = isAdminEmail(req.firebaseUser);
+    req.isAdmin = await isAdminUser(req.firebaseUser, firestoreDb);
     next();
   } catch {
     res.status(401).json({ error: 'Sesión no válida' });

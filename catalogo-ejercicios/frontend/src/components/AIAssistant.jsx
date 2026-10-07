@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { auth } from '../services/firebase'
 import { getProfileFavorites, saveProfileFavorites, isFavorited } from '../services/profile'
+import { apiUrl } from '../services/apiBase'
 import '../styles/AIAssistant.css'
 
-const API = '/api/ai'
+const API = apiUrl('/ai')
 
 const COPY = {
   es: {

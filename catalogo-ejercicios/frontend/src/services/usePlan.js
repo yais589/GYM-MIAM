@@ -1,12 +1,5 @@
 import { useState, useEffect } from 'react'
 
-export const ADMIN_EMAIL = 'yais589@vidalibarraquer.net'
-
-export function isAdminAccount(userOrEmail) {
-  const email = userOrEmail && typeof userOrEmail === 'object' ? userOrEmail.email : userOrEmail
-  return String(email || '').trim().toLowerCase() === ADMIN_EMAIL
-}
-
 const ADMIN_PERMS = {
   exercises: true,
   favoritesAdd: true,
@@ -87,7 +80,7 @@ export function setNutritionPurchased(uid, value = true) {
 
 // Hook principal
 export function usePlan(authUser, isAdmin = false) {
-  const adminUser = Boolean(isAdmin || isAdminAccount(authUser))
+  const adminUser = Boolean(isAdmin)
   const [plan, setPlanState] = useState(adminUser ? 'admin' : null)
   const [nutritionPurchased, setNutritionPurchasedState] = useState(false)
   const [planReady, setPlanReady] = useState(!authUser || adminUser)

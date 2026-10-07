@@ -66,6 +66,32 @@ VITE_STORE_API_URL=https://api-titangym.onrender.com/storeitems
 
 Si no se define, se utiliza esa URL automaticamente.
 
+Para producción, define también la URL pública del backend Express:
+
+```env
+VITE_API_URL=https://tu-backend-publico.example.com/api
+```
+
+No uses `localhost` en esta variable de Vercel. La URL debe ser la dirección HTTPS del servicio donde ejecutes `catalogo-ejercicios/backend`.
+
+### Configurar administradores
+
+Los permisos de administrador ya no dependen de un email escrito en el código. Se consultan en Firestore:
+
+```text
+admins/{UID_DEL_USUARIO}
+```
+
+En Firebase Console:
+
+1. Abre **Firestore Database**.
+2. Crea una colección llamada `admins`.
+3. Crea un documento cuyo ID sea el **UID exacto** del usuario que quieres hacer administrador.
+4. Añade el campo booleano `enabled` con valor `true`.
+5. El usuario debe cerrar sesión y volver a entrar para que la interfaz recargue su perfil.
+
+El UID se obtiene en **Authentication > Users**. No uses el email como ID del documento. No crees un formulario público para modificar `admins`; esa colección debe poder editarla únicamente el propietario del proyecto desde Firebase Console o un panel administrativo protegido.
+
 ## API principal
 
 - `GET /api/health`

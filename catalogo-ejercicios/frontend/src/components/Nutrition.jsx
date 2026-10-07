@@ -3,6 +3,7 @@ import NutritionCard from './NutritionCard'
 import FavoritesDrawer from './FavoritesDrawer'
 import CategoryMenu from './CategoryMenu'
 import { getProfileFavorites, saveProfileFavorites, isFavorited, sameId } from '../services/profile'
+import { apiUrl } from '../services/apiBase'
 import '../styles/Catalog.css'
 
 function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
@@ -87,7 +88,7 @@ function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
   const fetchIngredients = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/nutrition')
+      const res = await fetch(apiUrl('/nutrition'))
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
       setIngredients(data)

@@ -16,7 +16,7 @@ import NutritionUpsell from './components/NutritionUpsell'
 import Checkout from './components/Checkout'
 import { auth } from './services/firebase'
 import { getProfile, saveProfile } from './services/profile'
-import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan, isAdminAccount } from './services/usePlan'
+import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan } from './services/usePlan'
 import './styles/App.css'
 
 function App() {
@@ -34,7 +34,7 @@ function App() {
   const [showAI, setShowAI] = useState(false)
   const [showPlanSelector, setShowPlanSelector] = useState(false)
 
-  const adminUser = Boolean(isAdmin || isAdminAccount(authUser) || isAdminAccount(user))
+  const adminUser = Boolean(isAdmin)
   const { plan, perms, changePlan, hasNutrition, unlockNutrition, planReady } = usePlan(authUser, adminUser)
 
   const legalPages = {

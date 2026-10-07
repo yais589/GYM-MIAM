@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import axios from 'axios'
+import { apiUrl } from '../services/apiBase'
 import CategoryMenu from './CategoryMenu'
 import ExerciseCard from './ExerciseCard'
 import FavoritesDrawer from './FavoritesDrawer'
@@ -90,7 +91,7 @@ function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('/api/categories')
+      const response = await axios.get(apiUrl('/categories'))
       setCategories(response.data)
     } catch (err) {
       console.error('Error fetching categories:', err)
@@ -101,7 +102,7 @@ function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
   const fetchExercises = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/exercises')
+      const response = await axios.get(apiUrl('/exercises'))
       setAllExercises(response.data)
       const exercisesByCategory = new Map()
 
@@ -133,7 +134,7 @@ function Catalog({ language, user, onRequestAuth, canUseCalendar = false }) {
   const fetchExercisesByCategory = async (category) => {
     try {
       setLoading(true)
-      const response = await axios.get(`/api/exercises/category/${encodeURIComponent(category)}`)
+      const response = await axios.get(apiUrl(`/exercises/category/${encodeURIComponent(category)}`))
       setExercises(sortByMedia(response.data))
       setVisibleCount(Math.min(4, response.data.length))
     } catch (err) {
