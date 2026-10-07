@@ -112,6 +112,7 @@ function App() {
   // Cuando el usuario sin sesión clica algo: guardar plan pendiente + pedir login
   const requestAuth = (pendingPlanId) => {
     if (pendingPlanId) setPendingPlan(pendingPlanId)
+    setShowShop(false)
     setShowLogin(true)
     window.location.hash = 'login-box'
     window.setTimeout(() => {
