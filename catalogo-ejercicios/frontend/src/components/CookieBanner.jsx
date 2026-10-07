@@ -1,18 +1,26 @@
 import { useEffect, useState } from 'react'
 import '../styles/CookieBanner.css'
 
-const COOKIE_CONSENT_KEY = 'TitanGymCookiesV2'
+const COOKIE_CONSENT_KEY = 'TitanGymCookiesV3'
 
 function CookieBanner({ language }) {
   const [visible, setVisible] = useState(false)
   const isSpanish = language === 'es'
 
   useEffect(() => {
-    setVisible(!localStorage.getItem(COOKIE_CONSENT_KEY))
+    try {
+      setVisible(!window.localStorage.getItem(COOKIE_CONSENT_KEY))
+    } catch {
+      setVisible(true)
+    }
   }, [])
 
   const choose = (value) => {
-    localStorage.setItem(COOKIE_CONSENT_KEY, value)
+    try {
+      window.localStorage.setItem(COOKIE_CONSENT_KEY, value)
+    } catch {
+      // La decisión sigue siendo válida durante esta sesión si el navegador bloquea el almacenamiento.
+    }
     setVisible(false)
   }
 

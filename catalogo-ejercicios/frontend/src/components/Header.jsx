@@ -1,6 +1,6 @@
 import '../styles/Header.css'
 
-function Header({ language, setLanguage, onProfile }) {
+function Header({ language, setLanguage, theme, onToggleTheme, onProfile, onShop }) {
   const slogan = language === 'es'
     ? 'Entrena · Supera · Evoluciona'
     : 'Train · Overcome · Evolve'
@@ -17,6 +17,30 @@ function Header({ language, setLanguage, onProfile }) {
             className={language === 'en' ? 'active' : ''}
             onClick={() => setLanguage('en')}
           >EN</button>
+          <button
+            className="theme-button"
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={theme === 'dark'
+              ? (language === 'es' ? 'Activar modo claro' : 'Enable light mode')
+              : (language === 'es' ? 'Activar modo oscuro' : 'Enable dark mode')}
+            title={theme === 'dark'
+              ? (language === 'es' ? 'Modo claro' : 'Light mode')
+              : (language === 'es' ? 'Modo oscuro' : 'Dark mode')}
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
+          {onShop && (
+            <button
+              className="shop-button"
+              type="button"
+              onClick={onShop}
+              aria-label={language === 'es' ? 'Abrir tienda' : 'Open shop'}
+              title={language === 'es' ? 'Tienda' : 'Shop'}
+            >
+              🛒
+            </button>
+          )}
           {onProfile && (
             <button
               className="profile-button"
