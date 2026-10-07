@@ -17,7 +17,7 @@ const categoryIcons = {
   Quemagrasas: '🔥'
 }
 
-function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0 }) {
+function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, isAdmin = false }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -126,6 +126,10 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0 }) 
     : products
 
   const addToCart = (product, quantity = 1) => {
+    if (!user) {
+      onRequestAuth()
+      return
+    }
     if (!product.isAvailable || product.stock < 1) return
 
     setCart(previousCart => {
@@ -164,6 +168,7 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0 }) 
         cart={cart}
         language={language}
         shopDiscount={shopDiscount}
+        isAdmin={isAdmin}
         onBack={() => setShowCheckout(false)}
         onComplete={() => {
           setCart([])
@@ -179,7 +184,16 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0 }) 
       <div className="shop-top-bar">
         <button className="back-to-app" onClick={onBackToApp}>{t.backToApp}</button>
         <h1 className="shop-title">{t.title}</h1>
-        <button className="cart-button" onClick={() => setShowCart(open => !open)}>
+        <button
+          className="cart-button"
+          onClick={() => {
+            if (!user) {
+              onRequestAuth()
+              return
+            }
+            setShowCart(open => !open)
+          }}
+        >
           🛒 {t.cart} {getTotalItems() > 0 && `(${getTotalItems()})`}
         </button>
       </div>

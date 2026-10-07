@@ -21,7 +21,8 @@ function Welcome({ user, language, onEdit, onLogout, plan, onChangePlan }) {
         changePlan: 'Cambiar plan',
         planFree: 'Gratuito',
         planPro: 'Pro (3 meses)',
-        planElite: 'Elite (12 meses)'
+        planElite: 'Elite (12 meses)',
+        planAdmin: 'Administrador'
       }
     : {
         subtitle: 'Your personal information',
@@ -41,7 +42,8 @@ function Welcome({ user, language, onEdit, onLogout, plan, onChangePlan }) {
         changePlan: 'Change plan',
         planFree: 'Free',
         planPro: 'Pro (3 months)',
-        planElite: 'Elite (12 months)'
+        planElite: 'Elite (12 months)',
+        planAdmin: 'Administrator'
       }
 
   const value = (field) => {
@@ -73,7 +75,7 @@ function Welcome({ user, language, onEdit, onLogout, plan, onChangePlan }) {
           <p><strong>{labels.nutritionTracking}:</strong> {user?.followsDiet ? (isSpanish ? 'Sigo una dieta' : 'I follow a diet') : (isSpanish ? 'No sigo una dieta' : "I don't follow a diet")}</p>
           <p>
             <strong>{labels.currentPlan}:</strong>{' '}
-            {plan === 'elite' ? labels.planElite : plan === 'pro' ? labels.planPro : plan === 'free' ? labels.planFree : labels.empty}
+            {plan === 'admin' ? labels.planAdmin : plan === 'elite' ? labels.planElite : plan === 'pro' ? labels.planPro : plan === 'free' ? labels.planFree : labels.empty}
           </p>
         </div>
 

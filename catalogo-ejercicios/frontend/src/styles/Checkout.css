@@ -1,4 +1,4 @@
-.checkout {
+﻿.checkout {
   min-height: 100vh;
   background: #eef3f1;
   padding: 40px 20px 60px;
@@ -8,10 +8,10 @@
   max-width: 1200px;
   margin: 0 auto 30px;
   padding: 12px 24px;
-  background: #173b43;
+  background: #0f3b42;
   border: none;
   border-radius: 8px;
-  color: white;
+  color: var(--gray-100);
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
@@ -21,7 +21,7 @@
 
 .back-btn:hover {
   transform: translateX(-3px);
-  box-shadow: 0 6px 16px rgba(23, 59, 67, 0.3);
+  box-shadow: 0 6px 16px rgba(12, 21, 17, 0.3);
 }
 
 .checkout-container {
@@ -33,15 +33,15 @@
 }
 
 .checkout-form {
-  background: white;
+  background: var(--surface-color);
   padding: 40px;
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(23, 59, 67, 0.12);
+  box-shadow: 0 8px 24px rgba(12, 21, 17, 0.12);
 }
 
 .checkout-form h1 {
   margin: 0 0 40px 0;
-  color: #102f37;
+  color: #0f3b42;
   font-size: 2rem;
   font-weight: 900;
 }
@@ -52,11 +52,11 @@
 
 .form-section h2 {
   margin: 0 0 24px 0;
-  color: #173b43;
+  color: #0f3b42;
   font-size: 1.3rem;
   font-weight: 700;
   padding-bottom: 12px;
-  border-bottom: 2px solid #dce7e3;
+  border-bottom: 2px solid #cfe4e1;
 }
 
 .checkout .form-group {
@@ -67,7 +67,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #102f37;
+  color: #0f3b42;
 }
 
 .checkout .form-group input[type="text"],
@@ -75,19 +75,19 @@
 .checkout .form-group input[type="tel"] {
   width: 100%;
   padding: 14px;
-  border: 2px solid #dce7e3;
+  border: 2px solid #cfe4e1;
   border-radius: 8px;
   font-size: 1rem;
-  color: #173b43;
+  color: #0f3b42;
   background: #f8fbfa;
   transition: all 0.3s ease;
 }
 
 .checkout .form-group input:focus {
   outline: none;
-  border-color: #d88b51;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(216, 139, 81, 0.2);
+  border-color: #8fe3d8;
+  background: var(--surface-color);
+  box-shadow: 0 0 0 3px rgba(143, 227, 216, 0.2);
 }
 
 .checkout .form-group input.error {
@@ -110,26 +110,26 @@
 .checkout .checkbox-group input[type="checkbox"] {
   width: 20px;
   height: 20px;
-  border: 2px solid #dce7e3;
+  border: 2px solid #cfe4e1;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .checkout .checkbox-group input[type="checkbox"]:checked {
-  background: #d88b51;
-  border-color: #d88b51;
+  background: #8fe3d8;
+  border-color: #8fe3d8;
 }
 
 .checkout .checkbox-group span {
-  color: #40545a;
+  color: #3d6262;
   font-weight: 500;
 }
 
 .place-order-btn {
   width: 100%;
   padding: 18px;
-  background: #c4652d;
-  color: white;
+  background: #9bc94e;
+  color: var(--gray-100);
   border: none;
   border-radius: 10px;
   font-weight: 700;
@@ -141,8 +141,8 @@
 
 .place-order-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  background: #a94f21;
-  box-shadow: 0 6px 16px rgba(196, 101, 45, 0.35);
+  background: #6f9638;
+  box-shadow: 0 6px 16px rgba(79, 169, 160, 0.35);
 }
 
 .place-order-btn:disabled {
@@ -151,10 +151,10 @@
 }
 
 .order-summary {
-  background: white;
+  background: var(--surface-color);
   padding: 40px;
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(23, 59, 67, 0.12);
+  box-shadow: 0 8px 24px rgba(12, 21, 17, 0.12);
   position: sticky;
   top: 40px;
   height: fit-content;
@@ -162,11 +162,11 @@
 
 .order-summary h2 {
   margin: 0 0 30px 0;
-  color: #102f37;
+  color: #0f3b42;
   font-size: 1.5rem;
   font-weight: 900;
   padding-bottom: 16px;
-  border-bottom: 2px solid #dce7e3;
+  border-bottom: 2px solid #cfe4e1;
 }
 
 .order-items {
@@ -179,7 +179,7 @@
   display: flex;
   gap: 16px;
   padding: 16px;
-  border: 2px solid #dce7e3;
+  border: 2px solid #cfe4e1;
   border-radius: 12px;
   margin-bottom: 16px;
 }
@@ -189,18 +189,18 @@
   height: 60px;
   object-fit: cover;
   border-radius: 8px;
-  background: #f4f6f2;
+  background: #edf7f5;
 }
 
 .order-image-placeholder {
   width: 60px;
   height: 60px;
   border-radius: 8px;
-  background: #dce7e3;
+  background: #cfe4e1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: #557875;
   font-weight: 700;
   font-size: 0.75rem;
 }
@@ -211,42 +211,42 @@
 
 .order-item-info h4 {
   margin: 0 0 4px 0;
-  color: #102f37;
+  color: #0f3b42;
   font-size: 0.95rem;
   font-weight: 700;
 }
 
 .order-item-info span {
-  color: #40545a;
+  color: #3d6262;
   font-size: 0.9rem;
 }
 
 .order-item-price {
   font-weight: 700;
-  color: #a94f21;
+  color: #6f9638;
   align-self: center;
 }
 
 .order-totals {
   padding-top: 20px;
-  border-top: 2px solid #dce7e3;
+  border-top: 2px solid #cfe4e1;
 }
 
 .order-total-row {
   display: flex;
   justify-content: space-between;
   margin-bottom: 12px;
-  color: #40545a;
+  color: #3d6262;
   font-weight: 500;
 }
 
 .order-total-row.total {
   font-size: 1.4rem;
-  color: #102f37;
+  color: #0f3b42;
   font-weight: 900;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 2px solid #dce7e3;
+  border-top: 2px solid #cfe4e1;
 }
 
 @media (max-width: 1024px) {

@@ -1,13 +1,13 @@
-.plan-selector {
+﻿.plan-selector {
   max-width: 1200px;
   margin: 0 auto;
   padding: 40px 20px;
-  background: #01050a; /* Fallback for container if needed, though they exist in main app context */
+  background: #082a30; /* Fallback for container if needed, though they exist in main app context */
 }
 
 /* Override body/app bg specifically for plans view to be dark */
 .app:has(.plan-selector) {
-  background: #090f14;
+  background: #082a30;
 }
 
 /* Grid */
@@ -22,7 +22,7 @@
 .plan-card {
   flex: 1;
   max-width: 380px;
-  background: #0c141f;
+  background: linear-gradient(145deg, #102f37 0%, #0d252b 100%);
   border-radius: 20px;
   padding: 24px;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -37,7 +37,8 @@
 }
 
 .plan-card--highlight {
-  border-color: rgba(56, 234, 103, 0.4);
+  border-color: rgba(143, 227, 216, 0.72);
+  box-shadow: 0 18px 42px rgba(15, 59, 66, 0.26), inset 0 0 40px rgba(143, 227, 216, 0.05);
 }
 
 /* Header (Tags and Badges) */
@@ -57,22 +58,22 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
-  color: #94a3b8;
+  color: #b9e9e3;
   font-size: 0.85rem;
 }
 
 .plan-card-tag .dot {
   width: 8px;
   height: 8px;
-  background: #38ea67;
+  background: #8fe3d8;
   border-radius: 50%;
-  box-shadow: 0 0 8px rgba(56, 234, 103, 0.6);
+  box-shadow: 0 0 8px rgba(143, 227, 216, 0.6);
 }
 
 .plan-card-badge {
-  background: rgba(30, 58, 138, 0.3);
-  color: #60a5fa;
-  border: 1px solid rgba(37, 99, 235, 0.4);
+  background: rgba(143, 227, 216, 0.13);
+  color: #a9eee5;
+  border: 1px solid rgba(143, 227, 216, 0.5);
   font-size: 0.75rem;
   font-weight: 700;
   padding: 6px 12px;
@@ -81,9 +82,9 @@
 }
 
 .plan-card--highlight .plan-card-badge {
-  background: rgba(21, 128, 61, 0.3);
-  color: #38ea67;
-  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(143, 227, 216, 0.16);
+  color: #d9f792;
+  border-color: rgba(143, 227, 216, 0.55);
 }
 
 /* Pricing */
@@ -101,7 +102,7 @@
 .plan-name {
   font-size: 1.6rem;
   font-weight: 700;
-  color: #ffffff;
+  color: #f3f6ef;
   margin: 0;
 }
 
@@ -112,31 +113,33 @@
 .plan-price-value {
   font-size: 2rem;
   font-weight: 800;
-  color: #ffffff;
+  color: #9be8de;
+  letter-spacing: -0.02em;
 }
 
 .plan-price-currency {
   font-size: 1rem;
-  color: #94a3b8;
+  color: #d1eeea;
+  font-weight: 700;
 }
 
 .plan-price-extra {
   text-align: right;
   font-size: 0.9rem;
-  color: #94a3b8;
+  color: #b9d8d6;
 }
 
 .plan-price-extra.highlight {
-  color: #94a3b8;
+  color: #b9d8d6;
 }
 
 .plan-price-extra.highlight .highlight-word {
-  color: #38ea67;
+  color: #9be8de;
 }
 
 /* Description */
 .plan-card-description {
-  color: #94a3b8;
+  color: #b9d8d6;
   font-size: 0.95rem;
   line-height: 1.5;
   margin: 0 0 24px;
@@ -157,13 +160,13 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  color: #e2e8f0;
+  color: #cfe4e1;
   font-size: 0.92rem;
   line-height: 1.4;
 }
 
 .plan-features li strong {
-  color: #ffffff;
+  color: #f3f6ef;
   font-weight: 600;
 }
 
@@ -178,12 +181,12 @@
   border-radius: 50%;
 }
 
-.feature-icon[style*="#38ea67"] {
-  text-shadow: 0 0 10px rgba(56, 234, 103, 0.4);
+.feature-icon[style*="#8fe3d8"] {
+  text-shadow: 0 0 10px rgba(143, 227, 216, 0.4);
 }
 
-.feature-icon[style*="#6b7280"] {
-  border: 1px solid #475569;
+.feature-icon[style*="#557875"] {
+  border: 1px solid #557875;
   font-size: 0.75rem;
   width: 18px;
   height: 18px;
@@ -201,11 +204,11 @@
   width: 90px;
   height: 90px;
   border-radius: 50%;
-  background: #22c55e;
+  background: #4fa9a0;
   border: none;
   flex-shrink: 0;
   cursor: pointer;
-  box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 30px rgba(79, 169, 160, 0.4);
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
@@ -219,19 +222,19 @@
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: radial-gradient(circle at center, rgba(134, 239, 172, 0.8) 0%, #22c55e 70%);
+  background: radial-gradient(circle at center, rgba(143, 227, 216, 0.8) 0%, #4fa9a0 70%);
   z-index: 1;
 }
 
 .plan-cta-circle:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 40px rgba(34, 197, 94, 0.6);
+  box-shadow: 0 0 40px rgba(79, 169, 160, 0.6);
 }
 
 .cta-text {
   position: relative;
   z-index: 2;
-  color: #064e3b;
+  color: #0f3b42;
   font-weight: 800;
   font-size: 0.9rem;
   line-height: 1.1;
@@ -240,7 +243,7 @@
 }
 
 .plan-cta-subtitle {
-  color: #94a3b8;
+  color: #b9d8d6;
   font-size: 0.9rem;
   line-height: 1.4;
 }
@@ -274,11 +277,11 @@
 
 /* Nutrition upsell: keep the locked view in the same dark premium theme */
 .app:has(.nutrition-upsell) {
-  background: #090f14;
+  background: #082a30;
 }
 
 .app:has(.nutrition-upsell) .main-content {
-  background: #090f14;
+  background: #082a30;
 }
 
 .nutrition-upsell.plan-selector {
@@ -287,8 +290,8 @@
   min-height: 620px;
   margin: 0;
   padding: clamp(32px, 6vw, 72px) clamp(16px, 4vw, 56px);
-  background: #090f14;
-  color: #e2e8f0;
+  background: #082a30;
+  color: #cfe4e1;
   border-radius: 18px;
 }
 
@@ -301,7 +304,7 @@
 .nutrition-upsell .plan-kicker {
   display: inline-block;
   margin-bottom: 12px;
-  color: #38ea67;
+  color: #8fe3d8;
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -309,7 +312,7 @@
 
 .nutrition-upsell .plan-selector-hero h1 {
   margin: 0 0 12px;
-  color: #f8fafc;
+  color: #f3f6ef;
   font-size: clamp(2rem, 5vw, 3rem);
   line-height: 1.1;
 }
@@ -331,8 +334,8 @@
   max-width: 440px;
   margin: 0 auto;
   padding: 32px;
-  background: #101b29;
-  border: 1px solid rgba(56, 234, 103, 0.28);
+  background: #101b16;
+  border: 1px solid rgba(143, 227, 216, 0.28);
   border-radius: 20px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28), inset 0 0 40px rgba(0, 0, 0, 0.16);
 }
@@ -343,13 +346,13 @@
 }
 
 .nutrition-upsell .plan-name {
-  color: #f8fafc;
+  color: #f3f6ef;
   font-size: 1.45rem;
 }
 
 .nutrition-upsell .plan-price {
   margin: 12px 0 4px;
-  color: #38ea67;
+  color: #9be8de;
   font-size: 2rem;
   font-weight: 800;
 }
@@ -365,25 +368,25 @@
 }
 
 .nutrition-upsell .plan-features li {
-  color: #e2e8f0;
+  color: #cfe4e1;
 }
 
 .nutrition-upsell .plan-cta {
   width: 100%;
   padding: 14px 20px;
-  border: 1px solid #22c55e;
+  border: 1px solid #4fa9a0;
   border-radius: 12px;
-  background: #22c55e;
-  color: #064e3b;
+  background: #4fa9a0;
+  color: #0f3b42;
   font-size: 0.95rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 0 24px rgba(34, 197, 94, 0.28);
+  box-shadow: 0 0 24px rgba(79, 169, 160, 0.28);
 }
 
 .nutrition-upsell .plan-cta:hover {
-  background: #4ade80;
-  color: #052e16;
+  background: #b9eee8;
+  color: #082a30;
 }
 
 .nutrition-upsell .plan-note {

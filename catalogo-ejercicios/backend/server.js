@@ -3,26 +3,71 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
+import { isAdminUser, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
+import { generateChatReply } from './services/aiAssistant.js';
+import { buildNutritionPlan, buildTrainingPlan, buildCrossRecommendation } from './services/planGenerator.js';
+import { buildPlanPdf } from './services/planPdf.js';
+import { getExercises, getIngredients, getStoreItems, categoryNames, categoryIcons, firestoreRead } from './services/dataAccess.js';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+// El puerto debe ser siempre un número válido > 0. Algunos entornos definen
+// PORT=0 (puerto aleatorio) o vacío, lo que rompía el proxy del frontend.
+const parsedPort = Number.parseInt(process.env.PORT ?? '', 10);
+const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 5000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
+// Express 4 no captura los errores de los handlers async: una promesa rechazada
+// (por ejemplo, Firestore devolviendo un error) mataba el proceso entero y la
+// web se quedaba sin backend. Envolvemos los handlers async automáticamente
+// para que el fallo llegue al middleware de errores y el servidor siga vivo.
+const wrapAsync = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+for (const method of ['get', 'post', 'put', 'patch', 'delete', 'all']) {
+  const register = app[method].bind(app);
+  app[method] = (path, ...handlers) => register(path, ...handlers.map(handler =>
+    typeof handler === 'function' && handler.constructor?.name === 'AsyncFunction' && handler.length < 4
+      ? wrapAsync(handler)
+      : handler));
+}
+
+// Red de seguridad: aunque algo se escape, el servidor sigue en pie
+process.on('unhandledRejection', (reason) => {
+  console.error(`Promesa rechazada sin capturar (el servidor continúa): ${reason?.message || reason}`);
+});
+
 const requireFirebaseUser = async (req, res, next) => {
   if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
+  if (!firestoreDb) return res.status(503).json({ error: 'Firestore no está configurado' });
   const authorization = req.headers.authorization || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Sesión requerida' });
 
   try {
     req.firebaseUser = await firebaseAuth.verifyIdToken(token);
+    req.isAdmin = await isAdminUser(req.firebaseUser, firestoreDb);
+    next();
+  } catch {
+    res.status(401).json({ error: 'Sesión no válida' });
+  }
+};
+
+// Middleware que verifica autenticación y expone isAdmin para uso posterior
+const requireAuthWithAdmin = async (req, res, next) => {
+  if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
+  if (!firestoreDb) return res.status(503).json({ error: 'Firestore no está configurado' });
+  const authorization = req.headers.authorization || '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'Sesión requerida' });
+
+  try {
+    req.firebaseUser = await firebaseAuth.verifyIdToken(token);
+    req.isAdmin = await isAdminUser(req.firebaseUser, firestoreDb);
     next();
   } catch {
     res.status(401).json({ error: 'Sesión no válida' });
@@ -41,21 +86,8 @@ const db = {
     { id: 7, name: 'Yoga', category: 'flexibilidad', difficulty: 'beginner', description: 'Mejora flexibilidad y equilibrio', duration: 45, calories: 5, image: 'https://via.placeholder.com/200?text=Yoga', instructions: ['Posiciones básicas', 'Respiración profunda', 'Relajación'] },
     { id: 8, name: 'Estiramientos', category: 'flexibilidad', difficulty: 'beginner', description: 'Mejora el rango de movimiento', duration: 15, calories: 2, image: 'https://via.placeholder.com/200?text=Estiramientos', instructions: ['Mantén cada estiramiento', '20-30 segundos', 'Sin rebotes'] },
   ],
-  // Datos de nutrición de ejemplo
-  ingredients: [
-    { id: 1, name: 'Pollo pechuga', brand: 'Mercado', energy: 165, protein: 31, carbohydrates: 0, fat: 3.6, fiber: 0, sodium: 74, image: 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=400', source_name: 'Datos locales' },
-    { id: 2, name: 'Arroz blanco', brand: 'Dosal', energy: 130, protein: 2.7, carbohydrates: 28, fat: 0.3, fiber: 0.4, sodium: 1, image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400', source_name: 'Datos locales' },
-    { id: 3, name: 'Huevos', brand: 'Granja', energy: 155, protein: 13, carbohydrates: 1.1, fat: 11, fiber: 0, sodium: 124, image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400', source_name: 'Datos locales' },
-    { id: 4, name: 'Aguacate', brand: 'Natural', energy: 160, protein: 2, carbohydrates: 8.5, fat: 15, fiber: 6.7, sodium: 7, image: 'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=400', source_name: 'Datos locales' },
-    { id: 5, name: 'Salmón', brand: 'Mar', energy: 208, protein: 20, carbohydrates: 0, fat: 13, fiber: 0, sodium: 59, image: 'https://images.unsplash.com/photo-1574781330855-d0db8cc6a79c?w=400', source_name: 'Datos locales' },
-    { id: 6, name: 'Plátano', brand: 'Frutería', energy: 89, protein: 1.1, carbohydrates: 23, fat: 0.3, fiber: 2.6, sodium: 1, image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400', source_name: 'Datos locales' },
-    { id: 7, name: 'Leche descremada', brand: 'Lácteos', energy: 34, protein: 3.4, carbohydrates: 5, fat: 0.1, fiber: 0, sodium: 38, image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400', source_name: 'Datos locales' },
-    { id: 8, name: 'Pan integral', brand: 'Panadería', energy: 247, protein: 13, carbohydrates: 41, fat: 3.4, fiber: 7, sodium: 400, image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400', source_name: 'Datos locales' },
-    { id: 9, name: 'Brócoli', brand: 'Verdulería', energy: 34, protein: 2.8, carbohydrates: 7, fat: 0.4, fiber: 2.6, sodium: 33, image: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400', source_name: 'Datos locales' },
-    { id: 10, name: 'Yogur natural', brand: 'Lácteos', energy: 59, protein: 10, carbohydrates: 3.6, fat: 0.7, fiber: 0, sodium: 46, image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400', source_name: 'Datos locales' },
-    { id: 11, name: 'Manzana', brand: 'Frutería', energy: 52, protein: 0.3, carbohydrates: 14, fat: 0.2, fiber: 2.4, sodium: 1, image: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400', source_name: 'Datos locales' },
-    { id: 12, name: 'Pasta', brand: 'Dosal', energy: 131, protein: 5, carbohydrates: 25, fat: 1.1, fiber: 1.8, sodium: 6, image: 'https://images.unsplash.com/photo-1551462147-37885acc36f1?w=400', source_name: 'Datos locales' },
-  ],
+  // Datos de nutrición de ejemplo (el resto de datos de catálogo vive en services/dataAccess.js)
+  ingredients: [],
   categories: [
     { id: 1, name: 'Body', icon: '💪', description: 'Ejercicios de peso corporal' },
     { id: 2, name: 'Cardio', icon: '🏃', description: 'Ejercicios de resistencia' },
@@ -67,202 +99,6 @@ const db = {
   workouts: {},
   stats: {}
 };
-
-const localExercises = db.exercises;
-const categoryNames = {
-  8: 'Brazos',
-  9: 'Piernas',
-  10: 'Abdominales',
-  11: 'Pecho',
-  12: 'Espalda',
-  13: 'Hombros',
-  14: 'Pantorrillas',
-  15: 'Cardio'
-};
-const categoryIcons = {
-  Brazos: '💪',
-  Espalda: '🔩',
-  Abdominales: '⚡',
-  Hombros: '🏋️',
-  Pantorrillas: '🦵',
-  Pecho: '🏋️',
-  Piernas: '🚴',
-  Cardio: '🏃'
-};
-let exercisesCache = null;
-let exercisesCacheTime = 0;
-let exercisesLoadPromise = null;
-let ingredientsCache = null;
-let ingredientsCacheTime = 0;
-let ingredientsLoadPromise = null;
-let storeItemsCache = null;
-let storeItemsCacheTime = 0;
-let storeItemsLoadPromise = null;
-const EXERCISES_CACHE_TTL = 5 * 60 * 1000;
-const INGREDIENTS_CACHE_TTL = 10 * 60 * 1000;
-const STORE_ITEMS_CACHE_TTL = 5 * 60 * 1000;
-
-async function getExercises() {
-  if (!firestoreDb) return localExercises;
-  if (exercisesCache && Date.now() - exercisesCacheTime < EXERCISES_CACHE_TTL) {
-    return exercisesCache;
-  }
-  if (exercisesLoadPromise) return exercisesLoadPromise;
-
-  exercisesLoadPromise = (async () => {
-    try {
-    const [exerciseSnapshot, imageSnapshot] = await Promise.all([
-      firestoreDb.collection('exercise').get(),
-      firestoreDb.collection('exerciseimage').get()
-    ]);
-    const imagesByExercise = new Map();
-
-    imageSnapshot.docs.forEach((document) => {
-      const image = document.data();
-      const exerciseReference = image.exercise_base ?? image.exercise ?? image.exercise_base_id;
-      const relatedExercise = exerciseReference && typeof exerciseReference === 'object'
-        ? exerciseReference.id ?? exerciseReference.pk
-        : exerciseReference;
-      const imageUrl = image.image || image.thumbnails?.medium || image.thumbnails?.large;
-      const gifUrl = image.gif || image.animation || (imageUrl && /\.gif(?:\?|$)/i.test(imageUrl) ? imageUrl : null);
-
-      if (relatedExercise != null && imageUrl && !imagesByExercise.has(String(relatedExercise))) {
-        imagesByExercise.set(String(relatedExercise), { image: imageUrl, gif: gifUrl });
-      }
-    });
-
-    exercisesCache = exerciseSnapshot.docs.map((document) => {
-      const data = document.data();
-      const exerciseId = data.id ?? document.id;
-      const categoryId = data.category && typeof data.category === 'object'
-        ? data.category.id ?? data.category.pk
-        : data.category;
-      return {
-        ...data,
-        id: exerciseId,
-        name: data.name || data.title || `Ejercicio ${exerciseId}`,
-        description: data.description || data.description_es || 'Información disponible en la base de datos',
-        category: categoryId == null
-          ? 'general'
-          : categoryNames[categoryId] || String(categoryId),
-        difficulty: data.difficulty || 'intermediate',
-        instructions: data.instructions && data.instructions !== data.description ? data.instructions : '',
-        image: data.image || imagesByExercise.get(String(exerciseId))?.image || null,
-        gif: data.gif || imagesByExercise.get(String(exerciseId))?.gif || null
-      };
-    });
-    exercisesCacheTime = Date.now();
-    return exercisesCache;
-    } catch (error) {
-      console.error(`Error leyendo Firestore: ${error.message}`);
-      exercisesCache = localExercises;
-      exercisesCacheTime = Date.now();
-      return localExercises;
-    } finally {
-      exercisesLoadPromise = null;
-    }
-  })();
-
-  return exercisesLoadPromise;
-}
-
-async function getIngredients() {
-  // Si hay datos en Firestore, usarlos
-  if (firestoreDb) {
-    if (ingredientsCache && Date.now() - ingredientsCacheTime < INGREDIENTS_CACHE_TTL) {
-      return ingredientsCache;
-    }
-    if (ingredientsLoadPromise) return ingredientsLoadPromise;
-
-    ingredientsLoadPromise = (async () => {
-      try {
-        const snapshot = await firestoreDb.collection('ingredientinfo').get();
-        if (snapshot.size > 0) {
-          ingredientsCache = snapshot.docs.map((doc) => {
-            const data = doc.data();
-            const image = typeof data.image === 'string'
-              ? data.image
-              : data.image?.image || data.thumbnails?.medium || data.thumbnails?.small || null;
-            return {
-              id: data.id || doc.id,
-              name: data.name || data.common_name || 'Sin nombre',
-              brand: data.brand || null,
-              energy: data.energy || 0,
-              protein: data.protein || 0,
-              carbohydrates: data.carbohydrates || 0,
-              carbohydrates_sugar: data.carbohydrates_sugar || null,
-              fat: data.fat || 0,
-              fat_saturated: data.fat_saturated || null,
-              fiber: data.fiber || null,
-              sodium: data.sodium || null,
-              image,
-              thumbnails: data.thumbnails || null,
-              source_name: data.source_name || null,
-              language: data.language || null
-            };
-          });
-          ingredientsCacheTime = Date.now();
-          return ingredientsCache;
-        }
-      } catch (error) {
-        console.error(`Error leyendo ingredientes de Firestore: ${error.message}`);
-      } finally {
-        ingredientsLoadPromise = null;
-      }
-    })();
-
-    const result = await ingredientsLoadPromise;
-    if (result && result.length > 0) return result;
-  }
-
-  // Si no hay Firestore o no hay datos, usar datos locales
-  console.log('⚠️ Usando datos de nutrición locales');
-  return db.ingredients;
-}
-
-async function getStoreItems() {
-  if (!firestoreDb) {
-    throw new Error('Firebase no está configurado para el catálogo de tienda');
-  }
-  if (storeItemsCache && Date.now() - storeItemsCacheTime < STORE_ITEMS_CACHE_TTL) {
-    return storeItemsCache;
-  }
-  if (storeItemsLoadPromise) return storeItemsLoadPromise;
-
-  storeItemsLoadPromise = (async () => {
-    try {
-      const snapshot = await firestoreDb.collection('storeitems').get();
-      storeItemsCache = snapshot.docs
-        .map((document) => {
-          const data = document.data();
-          return {
-            id: data.id ?? document.id,
-            name: data.name || `Producto ${document.id}`,
-            category: data.category || 'Sin categoría',
-            brand: data.brand || '',
-            price: Number(data.price) || 0,
-            stock: Math.max(0, Number.parseInt(data.stock, 10) || 0),
-            weight: data.weight || '',
-            flavor: data.flavor || '',
-            description: data.description || '',
-            image: data.image || '',
-            featured: Boolean(data.featured),
-            rating: Number(data.rating) || 0,
-            reviews: Math.max(0, Number.parseInt(data.reviews, 10) || 0),
-            sku: data.sku || '',
-            isAvailable: data.isAvailable !== false
-          };
-        })
-        .sort((first, second) => Number(second.featured) - Number(first.featured) || first.name.localeCompare(second.name, 'es'));
-      storeItemsCacheTime = Date.now();
-      return storeItemsCache;
-    } finally {
-      storeItemsLoadPromise = null;
-    }
-  })();
-
-  return storeItemsLoadPromise;
-}
 
 // ========== RUTAS DE PRUEBA ==========
 app.get('/api/health', (req, res) => {
@@ -345,17 +181,24 @@ app.get('/api/categories/stats', async (req, res) => {
 });
 
 // ========== RUTAS DE USUARIO ==========
-app.get('/api/profile', requireFirebaseUser, async (req, res) => {
+app.get('/api/profile', requireAuthWithAdmin, async (req, res) => {
   const profileReference = firestoreDb.collection('profiles').doc(req.firebaseUser.uid);
   const snapshot = await profileReference.get();
-  res.json(snapshot.exists ? { id: snapshot.id, ...snapshot.data(), email: req.firebaseUser.email } : {
+  res.json(snapshot.exists ? { id: snapshot.id, ...snapshot.data(), email: req.firebaseUser.email, isAdmin: req.isAdmin } : {
     id: req.firebaseUser.uid,
-    email: req.firebaseUser.email
+    email: req.firebaseUser.email,
+    isAdmin: req.isAdmin
   });
 });
 
-app.put('/api/profile', requireFirebaseUser, async (req, res) => {
+app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
   const { password, confirmPassword, ...profile } = req.body;
+  const validation = validateProfileBusinessFields(profile, req.isAdmin);
+
+  if (!validation.ok) {
+    return res.status(400).json({ error: validation.error });
+  }
+
   const savedProfile = {
     ...profile,
     uid: req.firebaseUser.uid,
@@ -363,7 +206,115 @@ app.put('/api/profile', requireFirebaseUser, async (req, res) => {
     updatedAt: new Date()
   };
   await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).set(savedProfile, { merge: true });
-  res.json({ id: req.firebaseUser.uid, ...savedProfile });
+  res.json({ id: req.firebaseUser.uid, ...savedProfile, isAdmin: req.isAdmin });
+});
+
+// PUT /api/user/:id - verificar propiedad del recurso o admin
+app.put('/api/user/:id', requireFirebaseUser, (req, res, next) => {
+  if (req.isAdmin) return next();
+  const resourceId = req.params.id;
+  if (resourceId === req.firebaseUser.uid) return next();
+  return res.status(403).json({ error: 'No tienes permiso para este recurso' });
+}, async (req, res) => {
+  const currentUser = db.users[req.params.id] || { id: req.params.id };
+  db.users[req.params.id] = { ...currentUser, ...req.body, id: req.params.id };
+
+  try {
+    if (firestoreDb) {
+      await firestoreDb.collection('users').doc(req.params.id).set(db.users[req.params.id], { merge: true });
+    }
+    res.json(db.users[req.params.id]);
+  } catch (error) {
+    console.error(`Error actualizando usuario en Firestore: ${error.message}`);
+    res.status(500).json({ error: 'No se pudo actualizar el usuario' });
+  }
+});
+
+// DELETE /api/user/:id - solo admin o propietario
+app.delete('/api/user/:id', requireFirebaseUser, (req, res, next) => {
+  if (req.isAdmin) return next();
+  if (req.params.id === req.firebaseUser.uid) return next();
+  return res.status(403).json({ error: 'No tienes permiso para este recurso' });
+}, (req, res) => {
+  delete db.users[req.params.id];
+  delete db.favorites[req.params.id];
+  delete db.workouts[req.params.id];
+  delete db.stats[req.params.id];
+  res.json({ message: 'Usuario eliminado' });
+});
+
+// POST /api/user/:userId/workout - proteger con check de propiedad o admin
+app.post('/api/user/:userId/workout', requireFirebaseUser, (req, res, next) => {
+  if (req.isAdmin || req.params.userId === req.firebaseUser.uid) return next();
+  return res.status(403).json({ error: 'No tienes permiso para este recurso' });
+}, async (req, res) => {
+  const { userId } = req.params;
+
+  const parsed = parseWorkoutPayload(req.body, req.isAdmin);
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error });
+  }
+
+  if (!db.workouts[userId]) db.workouts[userId] = [];
+
+  const workout = {
+    id: uuidv4(),
+    exerciseId: parsed.workout.exerciseId,
+    duration: parsed.workout.duration,
+    calories: parsed.workout.calories,
+    date: new Date(),
+    completed: true
+  };
+
+  db.workouts[userId].push(workout);
+
+  // Actualizar estadísticas
+  if (!db.stats[userId]) db.stats[userId] = { totalCalories: 0, totalMinutes: 0, totalWorkouts: 0 };
+  db.stats[userId].totalCalories += workout.calories;
+  db.stats[userId].totalMinutes += workout.duration;
+  db.stats[userId].totalWorkouts += 1;
+
+  res.status(201).json(workout);
+});
+
+// POST /api/user/:userId/routines - proteger con check de propiedad o admin
+app.post('/api/user/:userId/routines', requireFirebaseUser, (req, res, next) => {
+  if (req.isAdmin || req.params.userId === req.firebaseUser.uid) return next();
+  return res.status(403).json({ error: 'No tienes permiso para este recurso' });
+}, (req, res) => {
+  const { userId } = req.params;
+  const { name, exercises, difficulty } = req.body;
+  const routine = {
+    id: uuidv4(),
+    name,
+    exercises,
+    difficulty,
+    createdAt: new Date(),
+    completed: false
+  };
+
+  if (!db.workouts[userId]) db.workouts[userId] = [];
+
+  // Guardar como rutina especial
+  res.status(201).json(routine);
+});
+
+// GET /api/user/:userId/workouts - proteger con check de propiedad o admin
+app.get('/api/user/:userId/workouts', requireFirebaseUser, (req, res, next) => {
+  if (req.isAdmin || req.params.userId === req.firebaseUser.uid) return next();
+  return res.status(403).json({ error: 'No tienes permiso para este recurso' });
+}, (req, res) => {
+  const workouts = db.workouts[req.params.userId] || [];
+  res.json(workouts);
+});
+
+// GET /api/user/:userId/stats - proteger con check de propiedad o admin
+app.get('/api/user/:userId/stats', requireFirebaseUser, (req, res, next) => {
+  if (req.isAdmin || req.params.userId === req.firebaseUser.uid) return next();
+  return res.status(403).json({ error: 'No tienes permiso para este recurso' });
+}, (req, res) => {
+  const stats = db.stats[req.params.userId] || { totalCalories: 0, totalMinutes: 0, totalWorkouts: 0 };
+  res.json(stats);
 });
 
 app.get('/api/profile/favorites', requireFirebaseUser, async (req, res) => {
@@ -444,7 +395,7 @@ app.put('/api/profile/cart', requireFirebaseUser, async (req, res) => {
   res.json({ items });
 });
 
-app.post('/api/user', requireFirebaseUser, async (req, res) => {
+app.post('/api/user', requireAuthWithAdmin, async (req, res) => {
   const userId = uuidv4();
   const newUser = {
     id: userId,
@@ -491,7 +442,7 @@ app.put('/api/user/:id', requireFirebaseUser, async (req, res) => {
   }
 });
 
-app.delete('/api/user/:id', (req, res) => {
+app.delete('/api/user/:id', requireFirebaseUser, requireOwnResource, (req, res) => {
   delete db.users[req.params.id];
   delete db.favorites[req.params.id];
   delete db.workouts[req.params.id];
@@ -663,15 +614,110 @@ if (smtpConfigured) {
     .catch(error => console.error(`SMTP no disponible: ${error.code || error.message}`));
 }
 
-// Endpoint para enviar plan por email
-app.post('/api/ai/send-plan', async (req, res) => {
-  const { email, plan, language } = req.body;
+// ========== ASISTENTE IA REAL ==========
+// Pregunta libre al asistente (responde solo sobre nutrición, ejercicio y tienda)
+app.post('/api/ai/chat', requireAuthWithAdmin, async (req, res) => {
+  const { message, history } = req.body || {};
+  const text = String(message || '').trim();
+  if (!text) return res.status(400).json({ error: 'Falta el mensaje' });
+  if (text.length > 2000) return res.status(400).json({ error: 'Mensaje demasiado largo' });
 
   try {
-    const isTraining = plan.type === 'training';
-    const subject = isTraining
-      ? (language === 'es' ? 'Tu Plan de Entrenamiento Personalizado' : 'Your Personalized Training Plan')
-      : (language === 'es' ? 'Tu Plan de Nutrición Personalizado' : 'Your Personalized Nutrition Plan');
+    // Perfil y usuario son opcionales: si Firestore va lento o falla, seguimos
+    // sin ellos en lugar de dejar al usuario esperando la respuesta.
+    const [profileSnapshot, userSnapshot] = await Promise.all([
+      firestoreRead(() => firestoreDb.collection('profiles').doc(req.firebaseUser.uid).get()),
+      firestoreRead(() => firestoreDb.collection('users').doc(req.firebaseUser.uid).get())
+    ]);
+    const profileData = profileSnapshot?.exists ? profileSnapshot.data() : null;
+    const userData = userSnapshot?.exists ? userSnapshot.data() : null;
+
+    const { reply, provider } = await generateChatReply({ message: text, history, userId: req.firebaseUser.uid, profileData, userData });
+    res.json({ reply, provider });
+  } catch (error) {
+    console.error(`Error en IA chat: ${error.message}`);
+    res.status(500).json({ error: 'El asistente no está disponible ahora mismo' });
+  }
+});
+
+// Genera plan completo de entrenamiento o nutrición (con progreso y recomendación cruzada)
+app.post('/api/ai/generate-plan', requireAuthWithAdmin, async (req, res) => {
+  const { type, input = {} } = req.body || {};
+  const planType = type === 'training' ? 'training' : type === 'nutrition' ? 'nutrition' : null;
+  if (!planType) return res.status(400).json({ error: "El 'type' debe ser 'training' o 'nutrition'" });
+
+  try {
+    const inputWithName = { ...input, name: input.name || req.firebaseUser.email?.split('@')[0] || 'Cliente' };
+    const plan = planType === 'training'
+      ? await buildTrainingPlan({ input: inputWithName, getExercises })
+      : await buildNutritionPlan({ input: inputWithName, getIngredients });
+    res.json({
+      plan,
+      recommendation: buildCrossRecommendation(plan)
+    });
+  } catch (error) {
+    console.error(`Error generando plan IA: ${error.message}`);
+    res.status(500).json({ error: 'No se pudo generar el plan' });
+  }
+});
+
+// Acepta la recomendación cruzada y genera el plan complementario
+app.post('/api/ai/accept-recommendation', requireAuthWithAdmin, async (req, res) => {
+  const { plan, input = {} } = req.body || {};
+  if (!plan || (plan.type !== 'nutrition' && plan.type !== 'training')) {
+    return res.status(400).json({ error: 'Falta el plan original' });
+  }
+  try {
+    const inputWithName = { ...input, name: input.name || plan.name || 'Cliente' };
+    const complementary = plan.type === 'nutrition'
+      ? await buildTrainingPlan({ input: inputWithName, getExercises })
+      : await buildNutritionPlan({ input: inputWithName, getIngredients });
+    res.json({
+      combinedPlan: { type: 'combined', name: inputWithName.name, trainingPlan: plan.type === 'training' ? plan : complementary, nutritionPlan: plan.type === 'nutrition' ? plan : complementary },
+      complementaryPlan: complementary,
+      recommendation: null
+    });
+  } catch (error) {
+    console.error(`Error aceptando recomendación: ${error.message}`);
+    res.status(500).json({ error: 'No se pudo generar el plan complementario' });
+  }
+});
+
+// PDF del plan (individual o combinado)
+app.post('/api/ai/generate-pdf', async (req, res) => {
+  const { plan, language } = req.body;
+  if (!plan || !['training', 'nutrition', 'combined'].includes(plan.type)) {
+    return res.status(400).json({ error: 'Plan no válido' });
+  }
+  try {
+    const doc = new PDFDocument({ margin: 50 });
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+    buildPlanPdf(doc, plan, language);
+    doc.on('end', () => {
+      const pdfBuffer = Buffer.concat(chunks);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=plan-${plan.type}-${Date.now()}.pdf`);
+      res.send(pdfBuffer);
+    });
+    doc.end();
+  } catch (error) {
+    console.error('Error generando PDF:', error);
+    res.status(500).json({ success: false, error: 'No se pudo generar el PDF' });
+  }
+});
+
+// Endpoint para enviar plan por email
+app.post('/api/ai/send-plan', async (req, res) => {
+  const { email, plan } = req.body;
+
+  try {
+  const isTraining = plan.type === 'training' || plan.type === 'combined';
+  const subject = plan.type === 'combined'
+    ? 'Tu Plan Completo (Entrenamiento + Nutrición)'
+    : isTraining
+      ? 'Tu Plan de Entrenamiento Personalizado'
+      : 'Tu Plan de Nutrición Personalizado';
 
     let htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f6f2;">
@@ -781,93 +827,6 @@ app.post('/api/ai/send-plan', async (req, res) => {
       ? 'La autenticación SMTP falló. Usa una contraseña de aplicación válida.'
       : 'No se pudo enviar el email. Revisa la configuración SMTP del servidor.';
     res.status(status).json({ success: false, error: message });
-  }
-});
-
-// Endpoint para generar PDF
-app.post('/api/ai/generate-pdf', async (req, res) => {
-  const { plan, language } = req.body;
-
-  try {
-    const doc = new PDFDocument({ margin: 50 });
-    const chunks = [];
-
-    doc.on('data', chunk => chunks.push(chunk));
-    doc.on('end', () => {
-      const pdfBuffer = Buffer.concat(chunks);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=plan-${plan.type}-${Date.now()}.pdf`);
-      res.send(pdfBuffer);
-    });
-
-    // Header
-    doc.fontSize(24).fillColor('#173b43').text('TITAN GYM', { align: 'center' });
-    doc.fontSize(16).fillColor('#d88b51').text(
-      plan.type === 'training'
-        ? (language === 'es' ? 'Plan de Entrenamiento Personalizado' : 'Personalized Training Plan')
-        : (language === 'es' ? 'Plan de Nutrición Personalizado' : 'Personalized Nutrition Plan'),
-      { align: 'center' }
-    );
-    doc.moveDown();
-    doc.fontSize(12).fillColor('#6b7280').text(`Cliente: ${plan.name}`, { align: 'center' });
-    doc.moveDown(2);
-
-    if (plan.type === 'training') {
-      doc.fontSize(14).fillColor('#173b43').text(`Objetivo: ${plan.goal}`);
-      doc.text(`Nivel: ${plan.level}`);
-      doc.text(`Días por semana: ${plan.schedule.length}`);
-      doc.moveDown();
-
-      doc.fontSize(16).fillColor('#d88b51').text('Rutina Semanal');
-      doc.moveDown();
-
-      plan.schedule.forEach((day, index) => {
-        doc.fontSize(12).fillColor('#173b43').text(`${day.day} - Enfoque: ${day.focus}`, { underline: true });
-        doc.moveDown(0.5);
-        day.exercises.forEach(ex => {
-          doc.fontSize(10).fillColor('#6b7280').text(`• ${ex} - ${day.sets} series x ${day.reps} - Descanso: ${day.rest}`, { indent: 20 });
-        });
-        doc.moveDown();
-      });
-    } else {
-      doc.fontSize(14).fillColor('#173b43').text(`Metabolismo Basal: ${plan.bmr} kcal`);
-      doc.text(`Calorías Diarias: ${plan.calories} kcal`);
-      doc.moveDown();
-
-      doc.fontSize(16).fillColor('#d88b51').text('Macronutrientes');
-      doc.moveDown(0.5);
-      doc.fontSize(12).fillColor('#6b7280').text(`Proteína: ${plan.macros.protein}g`);
-      doc.text(`Carbohidratos: ${plan.macros.carbs}g`);
-      doc.text(`Grasas: ${plan.macros.fat}g`);
-      doc.moveDown();
-
-      doc.fontSize(16).fillColor('#d88b51').text('Distribución de Comidas');
-      doc.moveDown(0.5);
-      plan.meals.forEach(meal => {
-        doc.fontSize(12).fillColor('#173b43').text(`${meal.time}: ${meal.calories} kcal`);
-      });
-
-      if (plan.suggestedFoods && plan.suggestedFoods.length > 0) {
-        doc.moveDown();
-        doc.fontSize(16).fillColor('#d88b51').text('Alimentos Sugeridos');
-        doc.moveDown(0.5);
-        plan.suggestedFoods.forEach(food => {
-          doc.fontSize(10).fillColor('#6b7280').text(`• ${food.meal}: ${food.name} - ${food.grams} g - ${food.calories} kcal - P ${food.protein} g / C ${food.carbohydrates} g / G ${food.fat} g`, { indent: 20 });
-        });
-        if (plan.foodTotals) {
-          doc.moveDown(0.5);
-          doc.fontSize(11).fillColor('#173b43').text(`Total calculado: ${plan.foodTotals.calories} kcal - P ${plan.foodTotals.protein} g / C ${plan.foodTotals.carbohydrates} g / G ${plan.foodTotals.fat} g`);
-        }
-      }
-    }
-
-    doc.moveDown(2);
-    doc.fontSize(10).fillColor('#6b7280').text('© 2026 TITAN GYM. Todos los derechos reservados.', { align: 'center' });
-
-    doc.end();
-  } catch (error) {
-    console.error('Error generando PDF:', error);
-    res.status(500).json({ success: false, error: 'No se pudo generar el PDF' });
   }
 });
 
@@ -1047,7 +1006,23 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
+// ========== MANEJO DE ERRORES ==========
+// Cualquier error de una ruta responde 500 y deja el servidor funcionando
+app.use((error, req, res, next) => { // eslint-disable-line no-unused-vars
+  console.error(`Error en ${req.method} ${req.originalUrl}: ${error.message}`);
+  if (res.headersSent) return next(error);
+  res.status(500).json({ error: 'Error interno del servidor' });
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en puerto ${PORT}`);
   console.log(`📍 API disponible en http://localhost:${PORT}/api`);
+
+  // Precarga el catálogo en segundo plano: así la primera pregunta al asistente
+  // ya se responde con los datos reales de Firestore (y no con los locales).
+  Promise.allSettled([getExercises(), getIngredients(), getStoreItems()]).then((results) => {
+    const [exercises, ingredients, storeItems] = results;
+    const size = (result) => result.status === 'fulfilled' ? (Array.isArray(result.value) ? result.value.length : 0) : 0;
+    console.log(`📚 Catálogo precargado: ${size(exercises)} ejercicios, ${size(ingredients)} alimentos, ${size(storeItems)} productos`);
+  });
 });

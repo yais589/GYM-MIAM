@@ -13,9 +13,10 @@ const emptyForm = {
   followsDiet: false
 }
 
-function UserSection({ user, onUserChange, language, onCancel }) {
+function UserSection({ user, onUserChange, language, onCancel, isAdmin = false }) {
   const [formData, setFormData] = useState({ ...emptyForm, ...user })
   const [saved, setSaved] = useState(false)
+  const adminUser = Boolean(isAdmin)
 
   useEffect(() => {
     setFormData({ ...emptyForm, ...user })
@@ -82,7 +83,7 @@ function UserSection({ user, onUserChange, language, onCancel }) {
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    if (!formData.name || !formData.email) {
+    if (!adminUser && (!formData.name || !formData.email)) {
       window.alert(labels.required)
       return
     }
@@ -98,10 +99,10 @@ function UserSection({ user, onUserChange, language, onCancel }) {
         <h2 className="titulo-titangym">TITANGYM</h2>
         <p className="subtitulo-titangym">{labels.subtitle}</p>
 
-        <form className="horizontal-form" onSubmit={handleSubmit}>
+        <form className="horizontal-form" onSubmit={handleSubmit} noValidate={adminUser}>
           <div className="form-group">
             <label htmlFor="name">{labels.name}</label>
-            <input id="name" name="name" value={formData.name} onChange={updateField} placeholder={labels.namePlaceholder} required />
+            <input id="name" name="name" value={formData.name} onChange={updateField} placeholder={labels.namePlaceholder} required={!adminUser} />
           </div>
           <div className="form-group">
             <label htmlFor="lastName">{labels.lastName}</label>
@@ -121,7 +122,7 @@ function UserSection({ user, onUserChange, language, onCancel }) {
           </div>
           <div className="form-group">
             <label htmlFor="email">{labels.email}</label>
-            <input id="email" name="email" type="email" value={formData.email} onChange={updateField} placeholder={labels.emailPlaceholder} required />
+            <input id="email" name="email" type="email" value={formData.email} onChange={updateField} placeholder={labels.emailPlaceholder} required={!adminUser} />
           </div>
           <div className="form-group gender-field">
             <span>{labels.gender}</span>

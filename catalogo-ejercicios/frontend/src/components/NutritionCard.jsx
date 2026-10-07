@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import '../styles/ExerciseCard.css'
 
 function NutritionCard({ ingredient, language, user, onRequestAuth, onAddFavorite, isFavorite }) {
@@ -99,7 +100,7 @@ function NutritionCard({ ingredient, language, user, onRequestAuth, onAddFavorit
         </div>
       </div>
 
-      {isDetailsOpen && (
+      {isDetailsOpen && createPortal((
         <div className="exercise-modal-backdrop" onClick={() => setIsDetailsOpen(false)}>
           <article className="exercise-modal" onClick={(e) => e.stopPropagation()}>
             <button
@@ -155,7 +156,7 @@ function NutritionCard({ ingredient, language, user, onRequestAuth, onAddFavorit
             </div>
           </article>
         </div>
-      )}
+      ), document.body)}
     </div>
   )
 }

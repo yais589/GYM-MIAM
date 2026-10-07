@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import NutritionCard from './NutritionCard'
 import FavoritesDrawer from './FavoritesDrawer'
 import CategoryMenu from './CategoryMenu'
-import { getProfileFavorites, saveProfileFavorites } from '../services/profile'
+import { getProfileFavorites, saveProfileFavorites, isFavorited, sameId } from '../services/profile'
+import { apiUrl } from '../services/apiBase'
 import '../styles/Catalog.css'
 
 function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
@@ -61,28 +62,33 @@ function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
   }, [])
 
   useEffect(() => {
-    if (!user) {
-      setFavorites([])
-      setFavoriteSchedule({})
-      return
+    const loadFavorites = () => {
+      if (!user) {
+        setFavorites([])
+        setFavoriteSchedule({})
+        return
+      }
+      getProfileFavorites().then(data => {
+        setFavorites(data.nutritionIds || [])
+        setExerciseFavorites(data.exerciseIds || [])
+        setExerciseSchedule(data.schedule || {})
+        setFavoriteSchedule(data.nutritionSchedule || {})
+      }).catch(() => {
+        setFavorites([])
+        setExerciseFavorites([])
+        setExerciseSchedule({})
+        setFavoriteSchedule({})
+      })
     }
-    getProfileFavorites().then(data => {
-      setFavorites(data.nutritionIds || [])
-      setExerciseFavorites(data.exerciseIds || [])
-      setExerciseSchedule(data.schedule || {})
-      setFavoriteSchedule(data.nutritionSchedule || {})
-    }).catch(() => {
-      setFavorites([])
-      setExerciseFavorites([])
-      setExerciseSchedule({})
-      setFavoriteSchedule({})
-    })
+    loadFavorites()
+    window.addEventListener('titan:favorites-updated', loadFavorites)
+    return () => window.removeEventListener('titan:favorites-updated', loadFavorites)
   }, [user])
 
   const fetchIngredients = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/nutrition')
+      const res = await fetch(apiUrl('/nutrition'))
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
       setIngredients(data)
@@ -121,11 +127,12 @@ function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
   const visibleNutrientIngredients = nutrientIngredients.slice(0, visibleCount)
 
   const handleAddFavorite = async (ingredient) => {
-    const nextFavorites = favorites.includes(ingredient.id)
-      ? favorites.filter(id => id !== ingredient.id)
-      : [...favorites, ingredient.id]
+    const alreadySaved = isFavorited(favorites, ingredient.id)
+    const nextFavorites = alreadySaved
+      ? favorites.filter(id => !sameId(id, ingredient.id))
+      : [...favorites, String(ingredient.id)]
     const nextSchedule = { ...favoriteSchedule }
-    if (favorites.includes(ingredient.id)) delete nextSchedule[ingredient.id]
+    if (alreadySaved) delete nextSchedule[ingredient.id]
     setFavorites(nextFavorites)
     setFavoriteSchedule(nextSchedule)
     try {
@@ -154,10 +161,16 @@ function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
             <div>
               <span className="catalog-kicker">{t.kicker}</span>
               <h2>{t.title}</h2>
+              <p className="catalog-lead">{language === 'es' ? 'Convierte tus datos en decisiones más inteligentes.' : 'Turn your data into smarter decisions.'}</p>
             </div>
             <div className="catalog-summary">
               <span><strong>{ingredients.length}</strong> {t.ingredients}</span>
             </div>
+          </div>
+          <div className="catalog-insight" aria-label="Información nutricional">
+            <div><span className="insight-dot" /> <strong>{language === 'es' ? 'BASE NUTRICIONAL ACTIVA' : 'NUTRITION DATABASE ONLINE'}</strong><small>{language === 'es' ? 'Valores por 100 g' : 'Values per 100 g'}</small></div>
+            <div><strong>{ingredients.length || '—'}</strong><small>{language === 'es' ? 'alimentos disponibles' : 'available foods'}</small></div>
+            <div><strong>SMART</strong><small>{language === 'es' ? 'elige mejor cada día' : 'make better choices'}</small></div>
           </div>
           <CategoryMenu
             categories={categories}
@@ -180,7 +193,7 @@ function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
                 user={user}
                 onRequestAuth={onRequestAuth}
                 onAddFavorite={handleAddFavorite}
-                isFavorite={favorites.includes(ingredient.id)}
+                isFavorite={isFavorited(favorites, ingredient.id)}
               />
             ))}
           </div>
@@ -193,7 +206,7 @@ function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
       </div>
       {user && (
         <FavoritesDrawer
-          items={ingredients.filter(ingredient => favorites.includes(ingredient.id))}
+          items={ingredients.filter(ingredient => isFavorited(favorites, ingredient.id))}
           language={language}
           type="nutrition"
           isOpen={favoritesOpen}

@@ -66,6 +66,32 @@ VITE_STORE_API_URL=https://api-titangym.onrender.com/storeitems
 
 Si no se define, se utiliza esa URL automaticamente.
 
+Para producción, define también la URL pública del backend Express:
+
+```env
+VITE_API_URL=https://tu-backend-publico.example.com/api
+```
+
+No uses `localhost` en esta variable de Vercel. La URL debe ser la dirección HTTPS del servicio donde ejecutes `catalogo-ejercicios/backend`.
+
+### Configurar administradores
+
+Los permisos de administrador ya no dependen de un email escrito en el código. Se consultan en Firestore:
+
+```text
+admins/{UID_DEL_USUARIO}
+```
+
+En Firebase Console:
+
+1. Abre **Firestore Database**.
+2. Crea una colección llamada `admins`.
+3. Crea un documento cuyo ID sea el **UID exacto** del usuario que quieres hacer administrador.
+4. Añade el campo booleano `enabled` con valor `true`.
+5. El usuario debe cerrar sesión y volver a entrar para que la interfaz recargue su perfil.
+
+El UID se obtiene en **Authentication > Users**. No uses el email como ID del documento. No crees un formulario público para modificar `admins`; esa colección debe poder editarla únicamente el propietario del proyecto desde Firebase Console o un panel administrativo protegido.
+
 ## API principal
 
 - `GET /api/health`
@@ -115,3 +141,16 @@ Antes de publicar, ejecuta:
 cd catalogo-ejercicios/frontend
 npm run build
 ```
+
+## Publicar el frontend en Vercel
+
+El repositorio incluye `vercel.json` en la raiz porque la aplicacion Vite esta dentro de `catalogo-ejercicios/frontend`.
+
+En Vercel, importa el repositorio sin cambiar la raiz del proyecto. La configuracion ejecuta automaticamente:
+
+```bash
+npm --prefix catalogo-ejercicios/frontend install
+npm --prefix catalogo-ejercicios/frontend run build
+```
+
+El backend Express no se ejecuta con este despliegue estatico. Debe estar desplegado en un servicio compatible, por ejemplo Render, y el frontend debe apuntar a su URL publica para que funcionen la API, perfiles, favoritos y la IA.
