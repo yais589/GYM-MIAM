@@ -126,6 +126,10 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
     : products
 
   const addToCart = (product, quantity = 1) => {
+    if (!user) {
+      onRequestAuth()
+      return
+    }
     if (!product.isAvailable || product.stock < 1) return
 
     setCart(previousCart => {
@@ -180,7 +184,16 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
       <div className="shop-top-bar">
         <button className="back-to-app" onClick={onBackToApp}>{t.backToApp}</button>
         <h1 className="shop-title">{t.title}</h1>
-        <button className="cart-button" onClick={() => setShowCart(open => !open)}>
+        <button
+          className="cart-button"
+          onClick={() => {
+            if (!user) {
+              onRequestAuth()
+              return
+            }
+            setShowCart(open => !open)
+          }}
+        >
           🛒 {t.cart} {getTotalItems() > 0 && `(${getTotalItems()})`}
         </button>
       </div>

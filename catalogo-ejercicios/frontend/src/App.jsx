@@ -171,10 +171,10 @@ function App() {
   // ──────────────────────────────────────────────
   // RENDER: selector de planes (sin sesión o recién logado sin plan)
   // ──────────────────────────────────────────────
-  if (showPlanSelector && !showLogin && !adminUser) {
+  if (showPlanSelector && !showLogin && !adminUser && !showShop) {
     return (
       <div className="app">
-        <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
+        <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => setShowShop(true)} />
         <main className="main-content">
           <PlanSelector
             language={language}
@@ -189,13 +189,13 @@ function App() {
 
   return (
     <div className="app">
-      <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
+      <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => setShowShop(true)} />
 
       {showShop ? (
         <Shop
           language={language}
           user={authUser ? user : null}
-          onRequestAuth={handleGuestInteraction}
+          onRequestAuth={() => requestAuth()}
           onBackToApp={() => setShowShop(false)}
           shopDiscount={perms?.shopDiscount || 0}
           isAdmin={adminUser}
