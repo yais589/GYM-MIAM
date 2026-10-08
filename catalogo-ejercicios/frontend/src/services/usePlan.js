@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 
+export function isAdminAccount(userOrEmail) {
+  return Boolean(userOrEmail && typeof userOrEmail === 'object' && userOrEmail.isAdmin === true)
+}
+
 const ADMIN_PERMS = {
   exercises: true,
   favoritesAdd: true,

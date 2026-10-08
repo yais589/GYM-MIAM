@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import NutritionCard from './NutritionCard'
 import FavoritesDrawer from './FavoritesDrawer'
 import CategoryMenu from './CategoryMenu'
+import { api } from '../services/api'
 import { getProfileFavorites, saveProfileFavorites, isFavorited, sameId } from '../services/profile'
-import { apiUrl } from '../services/apiBase'
 import '../styles/Catalog.css'
 
 function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
@@ -88,10 +88,8 @@ function Nutrition({ language, user, onRequestAuth, canUseCalendar = false }) {
   const fetchIngredients = async () => {
     try {
       setLoading(true)
-      const res = await fetch(apiUrl('/nutrition'))
-      if (!res.ok) throw new Error('Failed to fetch')
-      const data = await res.json()
-      setIngredients(data)
+      const response = await api.get('/nutrition')
+      setIngredients(response.data)
       setError(null)
     } catch (err) {
       console.error('Error loading ingredients:', err)

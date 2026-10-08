@@ -58,6 +58,12 @@ El backend usa `catalogo-ejercicios/backend/.env`. Puedes copiar `.env.example` 
 
 No publiques `firebase-key.json`, `.env` ni ninguna credencial en el repositorio.
 
+### Rol de administrador
+
+Los permisos de administrador se guardan en Firestore en `admins/{uid}` con `enabled: true`, siguiendo el registro de administradores existente en el backend. La primera vez que se autentica el correo configurado en `ADMIN_EMAIL`, el backend crea o habilita su documento. El backend no confía en campos de perfil enviados por el navegador; las reglas de Firestore también deben impedir escrituras directas de clientes en `admins`.
+
+Configura `ADMIN_EMAIL` en las variables de entorno del **backend** y despliega de nuevo ese servicio. En este proyecto Vercel sirve el frontend estático; no necesita esa variable ni credenciales de Firebase Admin. Al iniciar sesión con el correo configurado, el documento `admins/{uid}` aparecerá en Firestore. Las credenciales de Firebase Admin deben permanecer únicamente en el entorno seguro del backend.
+
 Para cambiar la URL del catalogo de tienda en el frontend, define:
 
 ```env
@@ -66,23 +72,23 @@ VITE_STORE_API_URL=https://api-titangym.onrender.com/storeitems
 
 Si no se define, se utiliza esa URL automaticamente.
 
-Para producción, define también la URL pública del backend Express:
+En Vercel, define `VITE_API_URL` con la URL HTTPS pública del backend Express, incluyendo el sufijo `/api`:
 
 ```env
-VITE_API_URL=https://tu-backend-publico.example.com/api
+VITE_API_URL=https://tu-backend.onrender.com/api
 ```
 
-No uses `localhost` en esta variable de Vercel. La URL debe ser la dirección HTTPS del servicio donde ejecutes `catalogo-ejercicios/backend`.
+No uses `localhost` en esta variable de Vercel. En desarrollo local, si no se define `VITE_API_URL`, Vite usa el proxy a `http://localhost:5000`. El backend debe permitir solicitudes CORS desde el dominio de Vercel.
 
 ### Configurar administradores
 
-Los permisos de administrador ya no dependen de un email escrito en el código. Se consultan en Firestore:
+Los permisos de administrador se consultan en Firestore:
 
 ```text
 admins/{UID_DEL_USUARIO}
 ```
 
-En Firebase Console:
+El correo definido mediante `ADMIN_EMAIL` se crea o habilita automáticamente en esa colección al iniciar sesión. Para añadir a otro administrador manualmente, en Firebase Console:
 
 1. Abre **Firestore Database**.
 2. Crea una colección llamada `admins`.

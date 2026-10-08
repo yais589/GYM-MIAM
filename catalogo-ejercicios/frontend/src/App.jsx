@@ -17,7 +17,7 @@ import NutritionUpsell from './components/NutritionUpsell'
 import Checkout from './components/Checkout'
 import { auth } from './services/firebase'
 import { getProfile, saveProfile } from './services/profile'
-import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan } from './services/usePlan'
+import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan, isAdminAccount } from './services/usePlan'
 import './styles/App.css'
 
 function App() {
@@ -26,6 +26,7 @@ function App() {
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [roleReady, setRoleReady] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [showLogin, setShowLogin] = useState(() => isSignInWithEmailLink(auth, window.location.href))
@@ -36,7 +37,7 @@ function App() {
   const [showPlanSelector, setShowPlanSelector] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
 
-  const adminUser = Boolean(isAdmin)
+  const adminUser = Boolean(isAdmin || isAdminAccount(user))
   const { plan, perms, changePlan, hasNutrition, unlockNutrition, planReady } = usePlan(authUser, adminUser)
 
   const legalPages = {
@@ -48,10 +49,12 @@ function App() {
   useEffect(() => {
     return onAuthStateChanged(auth, async (firebaseUser) => {
       setAuthUser(firebaseUser)
+      setUser(null)
+      setIsAdmin(false)
+      setRoleReady(false)
       if (firebaseUser) setShowLogin(false)
       if (!firebaseUser) {
-        setUser(null)
-        setIsAdmin(false)
+        setRoleReady(true)
         return
       }
       try {
@@ -59,7 +62,7 @@ function App() {
         setUser(profile)
         setIsAdmin(Boolean(profile?.isAdmin))
       } catch (error) {
-        if (error.code === 'account-disabled') {
+        if (error?.code === 'account-disabled') {
           await signOut(auth)
           window.alert(language === 'es'
             ? 'Tu cuenta ha sido bloqueada por un administrador.'
@@ -67,13 +70,14 @@ function App() {
         }
         setUser({ email: firebaseUser.email })
         setIsAdmin(false)
+        setRoleReady(true)
       }
     })
   }, [])
 
   // Si el usuario se ha logado y aún no tiene un plan, mostrar el selector
   useEffect(() => {
-    if (!planReady) return
+    if (!roleReady || !planReady) return
     if (adminUser) {
       setShowPlanSelector(false)
       return
@@ -83,7 +87,7 @@ function App() {
     } else if (authUser && plan) {
       setShowPlanSelector(false)
     }
-  }, [authUser, plan, planReady, adminUser])
+  }, [authUser, plan, planReady, adminUser, roleReady])
 
   const saveUser = async (userData) => {
     try {
@@ -196,7 +200,7 @@ function App() {
   // ──────────────────────────────────────────────
   // RENDER: selector de planes (sin sesión o recién logado sin plan)
   // ──────────────────────────────────────────────
-  if (showPlanSelector && !showLogin && !adminUser && !showShop) {
+  if (showPlanSelector && !showLogin && !adminUser && roleReady) {
     return (
       <div className="app">
         <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => setShowShop(true)} />
