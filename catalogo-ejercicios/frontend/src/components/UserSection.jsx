@@ -17,7 +17,7 @@ const emptyForm = {
 function UserSection({ user, onUserChange, language, onCancel, isAdmin = false }) {
   const [formData, setFormData] = useState({ ...emptyForm, ...user })
   const [saved, setSaved] = useState(false)
-  const adminUser = Boolean(isAdmin || isAdminAccount(user) || isAdminAccount(formData.email))
+  const adminUser = Boolean(isAdmin || isAdminAccount(user))
 
   useEffect(() => {
     setFormData({ ...emptyForm, ...user })

@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react'
 
-export const ADMIN_EMAIL = 'yais589@vidalibarraquer.net'
-
 export function isAdminAccount(userOrEmail) {
-  const email = userOrEmail && typeof userOrEmail === 'object' ? userOrEmail.email : userOrEmail
-  return String(email || '').trim().toLowerCase() === ADMIN_EMAIL
+  return Boolean(userOrEmail && typeof userOrEmail === 'object' && userOrEmail.role === 'admin')
 }
 
 const ADMIN_PERMS = {

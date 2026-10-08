@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
-import { isAdminEmail, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
+import { resolveUserRole, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { generateChatReply } from './services/aiAssistant.js';
@@ -43,34 +43,28 @@ process.on('unhandledRejection', (reason) => {
 
 const requireFirebaseUser = async (req, res, next) => {
   if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
+  if (!firestoreDb) return res.status(503).json({ error: 'Firestore no está configurado para comprobar el rol' });
   const authorization = req.headers.authorization || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Sesión requerida' });
 
   try {
     req.firebaseUser = await firebaseAuth.verifyIdToken(token);
-    req.isAdmin = isAdminEmail(req.firebaseUser);
-    next();
   } catch {
-    res.status(401).json({ error: 'Sesión no válida' });
+    return res.status(401).json({ error: 'Sesión no válida' });
   }
-};
-
-// Middleware que verifica autenticación y expone isAdmin para uso posterior
-const requireAuthWithAdmin = async (req, res, next) => {
-  if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
-  const authorization = req.headers.authorization || '';
-  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
-  if (!token) return res.status(401).json({ error: 'Sesión requerida' });
 
   try {
-    req.firebaseUser = await firebaseAuth.verifyIdToken(token);
-    req.isAdmin = isAdminEmail(req.firebaseUser);
-    next();
-  } catch {
-    res.status(401).json({ error: 'Sesión no válida' });
+    req.userRole = await resolveUserRole(req.firebaseUser, firestoreDb);
+    req.isAdmin = req.userRole === 'admin';
+    return next();
+  } catch (error) {
+    console.error(`No se pudo comprobar o guardar el rol del usuario: ${error.message}`);
+    return res.status(503).json({ error: 'No se pudo comprobar el rol del usuario' });
   }
 };
+
+const requireAuthWithAdmin = requireFirebaseUser;
 
 // ========== BASE DE DATOS LOCAL (Simulada) ==========
 const db = {
@@ -182,15 +176,20 @@ app.get('/api/categories/stats', async (req, res) => {
 app.get('/api/profile', requireAuthWithAdmin, async (req, res) => {
   const profileReference = firestoreDb.collection('profiles').doc(req.firebaseUser.uid);
   const snapshot = await profileReference.get();
-  res.json(snapshot.exists ? { id: snapshot.id, ...snapshot.data(), email: req.firebaseUser.email, isAdmin: req.isAdmin } : {
+  res.json({
+    ...(snapshot.exists ? snapshot.data() : {}),
     id: req.firebaseUser.uid,
+    uid: req.firebaseUser.uid,
     email: req.firebaseUser.email,
+    role: req.userRole,
     isAdmin: req.isAdmin
   });
 });
 
 app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
   const { password, confirmPassword, ...profile } = req.body;
+  delete profile.role;
+  delete profile.isAdmin;
   const validation = validateProfileBusinessFields(profile, req.isAdmin);
 
   if (!validation.ok) {
@@ -201,6 +200,7 @@ app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
     ...profile,
     uid: req.firebaseUser.uid,
     email: req.firebaseUser.email,
+    role: req.userRole,
     updatedAt: new Date()
   };
   await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).set(savedProfile, { merge: true });

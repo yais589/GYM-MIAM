@@ -1,11 +1,12 @@
 import { auth } from './firebase'
+import { API_BASE_URL } from './apiConfig'
 
 const profileRequest = async (url, options = {}) => {
   const user = auth.currentUser
   if (!user) throw new Error('No hay una sesión activa')
 
   const token = await user.getIdToken()
-  const response = await fetch(url, {
+  const response = await fetch(`${API_BASE_URL}${url}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -21,8 +22,8 @@ const profileRequest = async (url, options = {}) => {
   return response.json()
 }
 
-export const getProfile = () => profileRequest('/api/profile')
-export const saveProfile = (profile) => profileRequest('/api/profile', {
+export const getProfile = () => profileRequest('/profile')
+export const saveProfile = (profile) => profileRequest('/profile', {
   method: 'PUT',
   body: JSON.stringify(profile)
 })
@@ -33,7 +34,7 @@ export const sameId = (first, second) => String(first) === String(second)
 export const isFavorited = (ids, id) => Array.isArray(ids) && ids.some(saved => sameId(saved, id))
 const normalizeIds = (ids) => (Array.isArray(ids) ? ids.map(String) : [])
 
-export const getProfileFavorites = () => profileRequest('/api/profile/favorites').then(data => ({
+export const getProfileFavorites = () => profileRequest('/profile/favorites').then(data => ({
   exerciseIds: normalizeIds(data.exerciseIds),
   schedule: data.schedule && typeof data.schedule === 'object' ? data.schedule : {},
   nutritionIds: normalizeIds(data.nutritionIds),
@@ -46,15 +47,15 @@ export const saveProfileFavorites = (exerciseIds, schedule = {}, nutritionIds, n
     body.nutritionIds = normalizeIds(nutritionIds)
     body.nutritionSchedule = nutritionSchedule || {}
   }
-  return profileRequest('/api/profile/favorites', {
+  return profileRequest('/profile/favorites', {
     method: 'PUT',
     body: JSON.stringify(body)
   })
 }
 
-export const getProfileCart = () => profileRequest('/api/profile/cart')
+export const getProfileCart = () => profileRequest('/profile/cart')
 
-export const saveProfileCart = (items) => profileRequest('/api/profile/cart', {
+export const saveProfileCart = (items) => profileRequest('/profile/cart', {
   method: 'PUT',
   body: JSON.stringify({ items })
 })

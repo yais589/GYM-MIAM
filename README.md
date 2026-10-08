@@ -58,6 +58,20 @@ El backend usa `catalogo-ejercicios/backend/.env`. Puedes copiar `.env.example` 
 
 No publiques `firebase-key.json`, `.env` ni ninguna credencial en el repositorio.
 
+### Rol de administrador
+
+El rol visible del perfil se guarda en Firestore en `profiles/{uid}` mediante el campo `role` (`admin` o `user`). La fuente de autoridad para los permisos es `userRoles/{uid}`: el backend toma el correo de administrador de `ADMIN_EMAIL` (si no se configura, usa el valor predeterminado de la API), asigna y persiste el rol en esa colección y lo refleja en el perfil. Esto evita confiar en campos de perfil arbitrarios que pudieran haberse guardado antes de este cambio. El endpoint de perfil no permite que un usuario cambie su propio rol; las reglas de Firestore también deben impedir escrituras directas de clientes en `userRoles`.
+
+Configura `ADMIN_EMAIL` en las variables de entorno del **backend** y despliega de nuevo ese servicio. En este proyecto Vercel sirve el frontend estático; no necesita esa variable ni credenciales de Firebase Admin. Al iniciar sesión con el correo configurado, el rol aparecerá en el documento `profiles/{uid}` de Firestore. Las credenciales de Firebase Admin deben permanecer únicamente en el entorno seguro del backend.
+
+En la configuración del proyecto de Vercel, define `VITE_API_URL` con la URL base pública del backend, sin añadir `/api`. Por ejemplo:
+
+```env
+VITE_API_URL=https://tu-backend.onrender.com
+```
+
+El backend debe permitir solicitudes CORS desde el dominio de Vercel. En desarrollo local, si no se define `VITE_API_URL`, Vite usa el proxy a `http://localhost:5000`.
+
 Para cambiar la URL del catalogo de tienda en el frontend, define:
 
 ```env

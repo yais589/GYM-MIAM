@@ -13,6 +13,39 @@ export function isAdminEmail(user, env = process.env) {
   return Boolean(email) && normalizeEmail(email) === getAdminEmail(env);
 }
 
+export async function resolveUserRole(user, firestore, env = process.env) {
+  if (!firestore) {
+    throw new Error('Firestore no está configurado');
+  }
+  if (!user?.uid) {
+    throw new Error('El usuario autenticado no tiene un identificador');
+  }
+
+  // userRoles is the trusted role registry. The profile role is only a mirror:
+  // older profile writes accepted arbitrary fields, so it cannot grant access.
+  const roleReference = firestore.collection('userRoles').doc(user.uid);
+  const roleSnapshot = await roleReference.get();
+  const storedRole = roleSnapshot.exists ? roleSnapshot.data()?.role : null;
+  const role = isAdminEmail(user, env) || storedRole === 'admin' ? 'admin' : 'user';
+  const roleData = {
+    uid: user.uid,
+    email: user.email || null,
+    role
+  };
+
+  if (!roleSnapshot.exists || storedRole !== role) {
+    await roleReference.set(roleData, { merge: true });
+  }
+
+  const profileReference = firestore.collection('profiles').doc(user.uid);
+  const profileSnapshot = await profileReference.get();
+  if (!profileSnapshot.exists || profileSnapshot.data()?.role !== role) {
+    await profileReference.set(roleData, { merge: true });
+  }
+
+  return role;
+}
+
 export function getRequestedUserId(req) {
   return req?.params?.userId || req?.params?.id || null;
 }

@@ -1,10 +1,10 @@
 import axios from 'axios';
+import { API_BASE_URL } from './apiConfig'
 
-const API_URL = '/api';
 const STORE_API_URL = import.meta.env.VITE_STORE_API_URL || 'https://api-titangym.onrender.com/storeitems';
 
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json'
   }
