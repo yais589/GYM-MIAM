@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { auth } from '../services/firebase'
+import { apiUrl } from '../services/apiBase'
 import '../styles/Checkout.css'
 
 function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippingEnabled = true, isAdmin = false }) {
@@ -137,6 +139,23 @@ function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippi
     }
 
     const orderNumber = 'ORD-' + Date.now()
+    if (auth.currentUser) {
+      const token = await auth.currentUser.getIdToken()
+      const response = await fetch(apiUrl('/orders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          items: cart.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
+          total: getTotal()
+        })
+      })
+      if (!response.ok) {
+        setProcessing(false)
+        const data = await response.json().catch(() => ({}))
+        setErrors({ submit: data.error || 'No se pudo guardar el pedido' })
+        return
+      }
+    }
     alert(`${t.orderSuccess}\n${t.orderNumber}: ${orderNumber}`)
 
     onComplete()
