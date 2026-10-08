@@ -13,7 +13,7 @@ export function isAdminEmail(user, env = process.env) {
   return Boolean(email) && normalizeEmail(email) === getAdminEmail(env);
 }
 
-export async function resolveUserRole(user, firestore, env = process.env) {
+export async function resolveAdminStatus(user, firestore, env = process.env) {
   if (!firestore) {
     throw new Error('Firestore no está configurado');
   }
@@ -21,29 +21,22 @@ export async function resolveUserRole(user, firestore, env = process.env) {
     throw new Error('El usuario autenticado no tiene un identificador');
   }
 
-  // userRoles is the trusted role registry. The profile role is only a mirror:
-  // older profile writes accepted arbitrary fields, so it cannot grant access.
-  const roleReference = firestore.collection('userRoles').doc(user.uid);
-  const roleSnapshot = await roleReference.get();
-  const storedRole = roleSnapshot.exists ? roleSnapshot.data()?.role : null;
-  const role = isAdminEmail(user, env) || storedRole === 'admin' ? 'admin' : 'user';
-  const roleData = {
+  const adminReference = firestore.collection('admins').doc(user.uid);
+  const adminSnapshot = await adminReference.get();
+  const adminData = adminSnapshot.exists ? adminSnapshot.data() : null;
+  const configuredAdmin = isAdminEmail(user, env);
+
+  if (configuredAdmin && (!adminSnapshot.exists || adminData?.enabled === false)) {
+    await adminReference.set({
     uid: user.uid,
     email: user.email || null,
-    role
-  };
-
-  if (!roleSnapshot.exists || storedRole !== role) {
-    await roleReference.set(roleData, { merge: true });
+    enabled: true,
+    updatedAt: new Date()
+    }, { merge: true });
+    return true;
   }
 
-  const profileReference = firestore.collection('profiles').doc(user.uid);
-  const profileSnapshot = await profileReference.get();
-  if (!profileSnapshot.exists || profileSnapshot.data()?.role !== role) {
-    await profileReference.set(roleData, { merge: true });
-  }
-
-  return role;
+  return configuredAdmin || Boolean(adminSnapshot.exists && adminData?.enabled !== false);
 }
 
 export function getRequestedUserId(req) {

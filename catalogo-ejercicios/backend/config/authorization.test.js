@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolveUserRole } from './authorization.js';
+import { resolveAdminStatus } from './authorization.js';
 
 function createFirestore(initialData = {}) {
   const state = { collections: {}, writes: [] };
@@ -32,59 +32,91 @@ function createFirestore(initialData = {}) {
   return { firestore, state };
 }
 
-test('persists admin role for the configured email, regardless of email casing', async () => {
-  const { firestore, state } = createFirestore({ profiles: { 'admin-uid': { name: 'Admin' } } });
+test('persists an enabled admin document for the configured email, regardless of email casing', async () => {
+  const { firestore, state } = createFirestore();
 
-  const role = await resolveUserRole(
+  const isAdmin = await resolveAdminStatus(
     { uid: 'admin-uid', email: 'ADMIN@example.com' },
     firestore,
     { ADMIN_EMAIL: 'admin@example.com' }
   );
 
-  assert.equal(role, 'admin');
-  assert.equal(state.collections.userRoles['admin-uid'].role, 'admin');
-  assert.equal(state.collections.profiles['admin-uid'].role, 'admin');
-  assert.equal(state.collections.profiles['admin-uid'].uid, 'admin-uid');
-  assert.equal(state.collections.profiles['admin-uid'].name, 'Admin');
-  assert.equal(state.writes.length, 2);
+  assert.equal(isAdmin, true);
+  assert.equal(state.collections.admins['admin-uid'].enabled, true);
+  assert.equal(state.collections.admins['admin-uid'].uid, 'admin-uid');
+  assert.equal(state.collections.admins['admin-uid'].email, 'ADMIN@example.com');
+  assert.equal(state.writes.length, 1);
 });
 
-test('persists the user role for a profile without a role', async () => {
-  const { firestore, state } = createFirestore({ profiles: { 'user-uid': { name: 'User', role: 'admin' } } });
+test('does not grant admin access based on an untrusted profile role', async () => {
+  const { firestore, state } = createFirestore({
+    profiles: { 'user-uid': { role: 'admin' } }
+  });
 
-  const role = await resolveUserRole(
+  const isAdmin = await resolveAdminStatus(
     { uid: 'user-uid', email: 'user@example.com' },
     firestore,
     { ADMIN_EMAIL: 'admin@example.com' }
   );
 
-  assert.equal(role, 'user');
-  assert.equal(state.collections.userRoles['user-uid'].role, 'user');
-  assert.equal(state.collections.profiles['user-uid'].role, 'user');
-  assert.equal(state.writes.length, 2);
+  assert.equal(isAdmin, false);
+  assert.equal(state.collections.admins?.['user-uid'], undefined);
+  assert.equal(state.writes.length, 0);
 });
 
 test('uses an existing persisted admin role for another account', async () => {
   const { firestore, state } = createFirestore({
-    userRoles: {
-      'user-uid': { uid: 'user-uid', role: 'admin' }
-    },
-    profiles: {
-      'user-uid': { uid: 'user-uid', role: 'admin' }
+    admins: {
+      'user-uid': { uid: 'user-uid', enabled: true }
     }
   });
 
-  const role = await resolveUserRole(
+  const isAdmin = await resolveAdminStatus(
     { uid: 'user-uid', email: 'user@example.com' },
     firestore,
     { ADMIN_EMAIL: 'admin@example.com' }
   );
 
-  assert.equal(role, 'admin');
+  assert.equal(isAdmin, true);
   assert.equal(state.writes.length, 0);
 });
 
-test('rejects role resolution when Firestore or a uid is unavailable', async () => {
-  await assert.rejects(resolveUserRole({ uid: 'user-uid' }, null), /Firestore no está configurado/);
-  await assert.rejects(resolveUserRole({ email: 'user@example.com' }, {}), /no tiene un identificador/);
+test('does not grant access to disabled admin documents', async () => {
+  const { firestore, state } = createFirestore({
+    admins: {
+      'user-uid': { uid: 'user-uid', enabled: false }
+    }
+  });
+
+  const isAdmin = await resolveAdminStatus(
+    { uid: 'user-uid', email: 'user@example.com' },
+    firestore,
+    { ADMIN_EMAIL: 'admin@example.com' }
+  );
+
+  assert.equal(isAdmin, false);
+  assert.equal(state.writes.length, 0);
+});
+
+test('enables a disabled record for the configured admin email', async () => {
+  const { firestore, state } = createFirestore({
+    admins: {
+      'admin-uid': { uid: 'admin-uid', enabled: false }
+    }
+  });
+
+  const isAdmin = await resolveAdminStatus(
+    { uid: 'admin-uid', email: 'admin@example.com' },
+    firestore,
+    { ADMIN_EMAIL: 'admin@example.com' }
+  );
+
+  assert.equal(isAdmin, true);
+  assert.equal(state.collections.admins['admin-uid'].enabled, true);
+  assert.equal(state.writes.length, 1);
+});
+
+test('rejects admin resolution when Firestore or a uid is unavailable', async () => {
+  await assert.rejects(resolveAdminStatus({ uid: 'user-uid' }, null), /Firestore no está configurado/);
+  await assert.rejects(resolveAdminStatus({ email: 'user@example.com' }, {}), /no tiene un identificador/);
 });

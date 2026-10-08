@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
-import { resolveUserRole, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
+import { resolveAdminStatus, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { generateChatReply } from './services/aiAssistant.js';
@@ -55,8 +55,7 @@ const requireFirebaseUser = async (req, res, next) => {
   }
 
   try {
-    req.userRole = await resolveUserRole(req.firebaseUser, firestoreDb);
-    req.isAdmin = req.userRole === 'admin';
+    req.isAdmin = await resolveAdminStatus(req.firebaseUser, firestoreDb);
     return next();
   } catch (error) {
     console.error(`No se pudo comprobar o guardar el rol del usuario: ${error.message}`);
@@ -181,7 +180,6 @@ app.get('/api/profile', requireAuthWithAdmin, async (req, res) => {
     id: req.firebaseUser.uid,
     uid: req.firebaseUser.uid,
     email: req.firebaseUser.email,
-    role: req.userRole,
     isAdmin: req.isAdmin
   });
 });
@@ -200,7 +198,6 @@ app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
     ...profile,
     uid: req.firebaseUser.uid,
     email: req.firebaseUser.email,
-    role: req.userRole,
     updatedAt: new Date()
   };
   await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).set(savedProfile, { merge: true });

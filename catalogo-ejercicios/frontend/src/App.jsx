@@ -58,7 +58,7 @@ function App() {
       try {
         const profile = await getProfile()
         setUser(profile)
-        setIsAdmin(profile?.role === 'admin')
+        setIsAdmin(profile?.isAdmin === true)
         setRoleReady(true)
       } catch {
         setUser({ email: firebaseUser.email })

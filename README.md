@@ -60,9 +60,9 @@ No publiques `firebase-key.json`, `.env` ni ninguna credencial en el repositorio
 
 ### Rol de administrador
 
-El rol visible del perfil se guarda en Firestore en `profiles/{uid}` mediante el campo `role` (`admin` o `user`). La fuente de autoridad para los permisos es `userRoles/{uid}`: el backend toma el correo de administrador de `ADMIN_EMAIL` (si no se configura, usa el valor predeterminado de la API), asigna y persiste el rol en esa colección y lo refleja en el perfil. Esto evita confiar en campos de perfil arbitrarios que pudieran haberse guardado antes de este cambio. El endpoint de perfil no permite que un usuario cambie su propio rol; las reglas de Firestore también deben impedir escrituras directas de clientes en `userRoles`.
+Los permisos de administrador se guardan en Firestore en `admins/{uid}` con `enabled: true`, siguiendo el registro de administradores existente en el backend. La primera vez que se autentica el correo configurado en `ADMIN_EMAIL`, el backend crea o habilita su documento. El backend no confía en campos de perfil enviados por el navegador; las reglas de Firestore también deben impedir escrituras directas de clientes en `admins`.
 
-Configura `ADMIN_EMAIL` en las variables de entorno del **backend** y despliega de nuevo ese servicio. En este proyecto Vercel sirve el frontend estático; no necesita esa variable ni credenciales de Firebase Admin. Al iniciar sesión con el correo configurado, el rol aparecerá en el documento `profiles/{uid}` de Firestore. Las credenciales de Firebase Admin deben permanecer únicamente en el entorno seguro del backend.
+Configura `ADMIN_EMAIL` en las variables de entorno del **backend** y despliega de nuevo ese servicio. En este proyecto Vercel sirve el frontend estático; no necesita esa variable ni credenciales de Firebase Admin. Al iniciar sesión con el correo configurado, el documento `admins/{uid}` aparecerá en Firestore. Las credenciales de Firebase Admin deben permanecer únicamente en el entorno seguro del backend.
 
 En la configuración del proyecto de Vercel, define `VITE_API_URL` con la URL base pública del backend, sin añadir `/api`. Por ejemplo:
 
