@@ -5,6 +5,7 @@ const MAX_RESULTS = 25;
 const tokenSecret = process.env.ADMIN_AI_CONFIRM_SECRET || crypto.randomBytes(32).toString('hex');
 
 const clean = (value) => String(value ?? '').trim();
+const MAX_MESSAGE_LENGTH = 2000;
 const timestamp = (value) => value?.toDate ? value.toDate().toISOString() : value ?? null;
 const safeDoc = (snapshot) => {
   const data = snapshot.data() || {};
@@ -66,6 +67,31 @@ export function parseAdminRequest(body = {}) {
   const planMatch = lower.match(/\b(plan|suscripci[oó]n)\s*(?:a|:)?\s*(gratuito|free|premium|pro|mensual|anual)\b/);
   if (planMatch && !updates.plan) updates.plan = planMatch[2];
   return { message, action, target: findTarget(message, body), updates };
+}
+
+export function validateAdminInteraction(interaction = {}) {
+  const message = clean(interaction.message);
+  if (!message || message.length > MAX_MESSAGE_LENGTH) {
+    throw new Error('La interacción debe contener un mensaje válido de hasta 2000 caracteres');
+  }
+  const allowedStatus = ['received', 'completed', 'confirmation-required', 'error'];
+  const status = allowedStatus.includes(interaction.status) ? interaction.status : 'completed';
+  return {
+    userId: clean(interaction.userId),
+    message,
+    action: clean(interaction.action) || null,
+    target: clean(interaction.target) || null,
+    status,
+    reply: clean(interaction.reply).slice(0, 5000),
+    data: interaction.data && typeof interaction.data === 'object' ? interaction.data : null,
+    createdAt: interaction.createdAt || new Date()
+  };
+}
+
+export async function saveAdminInteraction(firestore, interaction) {
+  const valid = validateAdminInteraction(interaction);
+  const reference = await firestore.collection('adminAiInteractions').add(valid);
+  return { id: reference.id, ...valid };
 }
 
 async function resolveUser(target, auth) {

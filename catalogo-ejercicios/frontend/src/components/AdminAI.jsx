@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { askAdminAI } from '../services/adminAI'
+import { useEffect, useState } from 'react'
+import { askAdminAI, getAdminAIInteractions } from '../services/adminAI'
 
 function AdminAI({ language }) {
   const isSpanish = language === 'es'
@@ -13,6 +13,27 @@ function AdminAI({ language }) {
   const [pendingConfirmation, setPendingConfirmation] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [historyLoaded, setHistoryLoaded] = useState(false)
+
+  const loadHistory = async () => {
+    try {
+      const history = await getAdminAIInteractions()
+      if (history.length) {
+        setMessages(history.flatMap(item => [
+          { role: 'user', content: item.message },
+          { role: 'assistant', content: item.reply || '', data: item.data }
+        ]))
+      }
+    } catch (historyError) {
+      setError(historyError.message)
+    } finally {
+      setHistoryLoaded(true)
+    }
+  }
+
+  useEffect(() => {
+    if (!historyLoaded) loadHistory()
+  }, [historyLoaded])
 
   const send = async (message = input, confirmationToken = '') => {
     const text = message.trim()

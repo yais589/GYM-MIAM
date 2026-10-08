@@ -7,7 +7,7 @@ import { resolveAdminStatus, requireAdmin, requireOwnResource, parseWorkoutPaylo
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { generateChatReply } from './services/aiAssistant.js';
-import { createConfirmationToken, executeAdminAction, parseAdminRequest, queryData, readConfirmationToken, verifyConfirmationToken } from './services/adminAi.js';
+import { createConfirmationToken, executeAdminAction, parseAdminRequest, queryData, readConfirmationToken, saveAdminInteraction, verifyConfirmationToken } from './services/adminAi.js';
 import { buildNutritionPlan, buildTrainingPlan, buildCrossRecommendation } from './services/planGenerator.js';
 import { buildPlanPdf } from './services/planPdf.js';
 import { getExercises, getIngredients, getStoreItems, categoryNames, categoryIcons, firestoreRead } from './services/dataAccess.js';
@@ -257,13 +257,21 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
         confirmationToken, parsed.action, parsed.target, parsed.updates
       );
       if (!confirmed) {
-        return res.json({
+        const result = {
           reply: `La acción «${parsed.action}» requiere confirmación explícita. Reenvía la misma solicitud con confirmationToken.`,
           action: parsed.action,
           requiresConfirmation: true,
           confirmationToken: createConfirmationToken(parsed.action, parsed.target, parsed.updates),
           data: { target: parsed.target }
+        };
+        await saveAdminInteraction(firestoreDb, {
+          ...parsed,
+          userId: req.firebaseUser.uid,
+          status: 'confirmation-required',
+          reply: result.reply,
+          data: result.data
         });
+        return res.json(result);
       }
       const data = await executeAdminAction({
         ...parsed,
@@ -271,13 +279,16 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
         auth: firebaseAuth,
         firestore: firestoreDb
       });
-      return res.json({
+      const result = {
         reply: 'Acción administrativa ejecutada correctamente.',
         action: parsed.action,
         requiresConfirmation: false,
         confirmationToken: null,
         data
-      });
+      };
+      await saveAdminInteraction(firestoreDb, { ...parsed, userId: req.firebaseUser.uid, status: 'completed', reply: result.reply, data })
+        .catch(error => console.error(`No se pudo persistir la acción IA: ${error.message}`));
+      return res.json(result);
     }
 
     const data = await queryData(parsed.message, firestoreDb, firebaseAuth);
@@ -289,17 +300,29 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
         profileData: { role: 'admin' },
         userData: null
       });
-      return res.json({ reply, action: null, requiresConfirmation: false, confirmationToken: null, data: null });
+      const result = { reply, action: null, requiresConfirmation: false, confirmationToken: null, data: null };
+      await saveAdminInteraction(firestoreDb, { ...parsed, userId: req.firebaseUser.uid, status: 'completed', reply })
+        .catch(error => console.error(`No se pudo persistir la consulta IA: ${error.message}`));
+      return res.json(result);
     }
-    return res.json({
+    const result = {
       reply: 'Consulta administrativa completada. Los resultados están limitados por seguridad.',
       action: null,
       requiresConfirmation: false,
       confirmationToken: null,
       data
-    });
+    };
+    await saveAdminInteraction(firestoreDb, { ...parsed, userId: req.firebaseUser.uid, status: 'completed', reply: result.reply, data })
+      .catch(error => console.error(`No se pudo persistir la consulta IA: ${error.message}`));
+    return res.json(result);
   } catch (error) {
     console.error(`Error en IA administrativa: ${error.message}`);
+    await saveAdminInteraction(firestoreDb, {
+      ...parsed,
+      userId: req.firebaseUser.uid,
+      status: 'error',
+      reply: error.message || 'No se pudo completar la solicitud administrativa'
+    }).catch(saveError => console.error(`No se pudo guardar la interacción IA: ${saveError.message}`));
     return res.status(400).json({
       error: error.message || 'No se pudo completar la solicitud administrativa',
       reply: error.message || 'No se pudo completar la solicitud administrativa',
@@ -309,6 +332,25 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
       data: null
     });
   }
+});
+
+app.get('/api/admin/ai/interactions', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 30));
+  const snapshot = await firestoreDb.collection('adminAiInteractions')
+    .where('userId', '==', req.firebaseUser.uid)
+    .limit(limit)
+    .get();
+  const interactions = snapshot.docs
+    .map(document => {
+      const data = document.data() || {};
+      return {
+        id: document.id,
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt || null
+      };
+    })
+    .sort((first, second) => String(first.createdAt || '').localeCompare(String(second.createdAt || '')));
+  res.json({ interactions });
 });
 
 app.get('/api/admin/overview', requireAuthWithAdmin, requireAdmin, async (req, res) => {
