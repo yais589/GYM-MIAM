@@ -64,14 +64,6 @@ Los permisos de administrador se guardan en Firestore en `admins/{uid}` con `ena
 
 Configura `ADMIN_EMAIL` en las variables de entorno del **backend** y despliega de nuevo ese servicio. En este proyecto Vercel sirve el frontend estático; no necesita esa variable ni credenciales de Firebase Admin. Al iniciar sesión con el correo configurado, el documento `admins/{uid}` aparecerá en Firestore. Las credenciales de Firebase Admin deben permanecer únicamente en el entorno seguro del backend.
 
-En la configuración del proyecto de Vercel, define `VITE_API_URL` con la URL base pública del backend, sin añadir `/api`. Por ejemplo:
-
-```env
-VITE_API_URL=https://tu-backend.onrender.com
-```
-
-El backend debe permitir solicitudes CORS desde el dominio de Vercel. En desarrollo local, si no se define `VITE_API_URL`, Vite usa el proxy a `http://localhost:5000`.
-
 Para cambiar la URL del catalogo de tienda en el frontend, define:
 
 ```env
@@ -79,6 +71,32 @@ VITE_STORE_API_URL=https://api-titangym.onrender.com/storeitems
 ```
 
 Si no se define, se utiliza esa URL automaticamente.
+
+En Vercel, define `VITE_API_URL` con la URL HTTPS pública del backend Express, incluyendo el sufijo `/api`:
+
+```env
+VITE_API_URL=https://tu-backend.onrender.com/api
+```
+
+No uses `localhost` en esta variable de Vercel. En desarrollo local, si no se define `VITE_API_URL`, Vite usa el proxy a `http://localhost:5000`. El backend debe permitir solicitudes CORS desde el dominio de Vercel.
+
+### Configurar administradores
+
+Los permisos de administrador se consultan en Firestore:
+
+```text
+admins/{UID_DEL_USUARIO}
+```
+
+El correo definido mediante `ADMIN_EMAIL` se crea o habilita automáticamente en esa colección al iniciar sesión. Para añadir a otro administrador manualmente, en Firebase Console:
+
+1. Abre **Firestore Database**.
+2. Crea una colección llamada `admins`.
+3. Crea un documento cuyo ID sea el **UID exacto** del usuario que quieres hacer administrador.
+4. Añade el campo booleano `enabled` con valor `true`.
+5. El usuario debe cerrar sesión y volver a entrar para que la interfaz recargue su perfil.
+
+El UID se obtiene en **Authentication > Users**. No uses el email como ID del documento. No crees un formulario público para modificar `admins`; esa colección debe poder editarla únicamente el propietario del proyecto desde Firebase Console o un panel administrativo protegido.
 
 ## API principal
 

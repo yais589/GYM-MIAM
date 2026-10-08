@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_BASE_URL } from './apiConfig'
+import { API_BASE_URL } from './apiBase';
 
 const STORE_API_URL = import.meta.env.VITE_STORE_API_URL || 'https://api-titangym.onrender.com/storeitems';
 

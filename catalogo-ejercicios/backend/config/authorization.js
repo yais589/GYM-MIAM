@@ -28,10 +28,10 @@ export async function resolveAdminStatus(user, firestore, env = process.env) {
 
   if (configuredAdmin && (!adminSnapshot.exists || adminData?.enabled === false)) {
     await adminReference.set({
-    uid: user.uid,
-    email: user.email || null,
-    enabled: true,
-    updatedAt: new Date()
+      uid: user.uid,
+      email: user.email || null,
+      enabled: true,
+      updatedAt: new Date()
     }, { merge: true });
     return true;
   }

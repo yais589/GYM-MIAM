@@ -116,6 +116,7 @@ function App() {
   // Cuando el usuario sin sesión clica algo: guardar plan pendiente + pedir login
   const requestAuth = (pendingPlanId) => {
     if (pendingPlanId) setPendingPlan(pendingPlanId)
+    setShowShop(false)
     setShowLogin(true)
     window.location.hash = 'login-box'
     window.setTimeout(() => {
@@ -178,7 +179,7 @@ function App() {
   if (showPlanSelector && !showLogin && !adminUser && roleReady) {
     return (
       <div className="app">
-        <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
+        <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => setShowShop(true)} />
         <main className="main-content">
           <PlanSelector
             language={language}
@@ -193,13 +194,13 @@ function App() {
 
   return (
     <div className="app">
-      <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => authUser && (plan || adminUser) ? setShowShop(true) : handleGuestInteraction()} />
+      <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => setShowShop(true)} />
 
       {showShop ? (
         <Shop
           language={language}
           user={authUser ? user : null}
-          onRequestAuth={handleGuestInteraction}
+          onRequestAuth={() => requestAuth()}
           onBackToApp={() => setShowShop(false)}
           shopDiscount={perms?.shopDiscount || 0}
           isAdmin={adminUser}

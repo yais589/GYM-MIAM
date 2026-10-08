@@ -1,12 +1,12 @@
 import { auth } from './firebase'
-import { API_BASE_URL } from './apiConfig'
+import { apiUrl } from './apiBase'
 
 const profileRequest = async (url, options = {}) => {
   const user = auth.currentUser
   if (!user) throw new Error('No hay una sesión activa')
 
   const token = await user.getIdToken()
-  const response = await fetch(`${API_BASE_URL}${url}`, {
+  const response = await fetch(apiUrl(url), {
     ...options,
     headers: {
       'Content-Type': 'application/json',
