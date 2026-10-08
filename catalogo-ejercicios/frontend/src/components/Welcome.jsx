@@ -1,6 +1,6 @@
 import '../styles/Welcome.css'
 
-function Welcome({ user, language, onEdit, onLogout, plan, onChangePlan }) {
+function Welcome({ user, language, onEdit, onLogout, plan, onChangePlan, onOpenAdmin }) {
   const isSpanish = language === 'es'
   const labels = isSpanish
     ? {
@@ -83,6 +83,11 @@ function Welcome({ user, language, onEdit, onLogout, plan, onChangePlan }) {
           <button className="welcome-edit-btn" type="button" onClick={onEdit}>{labels.edit}</button>
           {onChangePlan && (
             <button className="welcome-plan-btn" type="button" onClick={onChangePlan}>{labels.changePlan}</button>
+          )}
+          {onOpenAdmin && (
+            <button className="welcome-admin-btn" type="button" onClick={onOpenAdmin}>
+              {isSpanish ? 'Panel de administración' : 'Administration panel'}
+            </button>
           )}
           <button className="welcome-logout-btn" type="button" onClick={onLogout}>{labels.logout}</button>
         </div>

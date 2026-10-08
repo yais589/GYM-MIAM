@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
-import { isAdminUser, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
+import { isAdminUser, requireAdmin, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { generateChatReply } from './services/aiAssistant.js';
@@ -210,6 +210,107 @@ app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
   };
   await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).set(savedProfile, { merge: true });
   res.json({ id: req.firebaseUser.uid, ...savedProfile, isAdmin: req.isAdmin });
+});
+
+// ========== PANEL DE ADMINISTRACIÓN ==========
+// Estas rutas nunca aceptan un uid o rol enviado por el cliente como prueba de
+// permisos: requireAdmin siempre consulta admins/{uid} en Firestore.
+app.get('/api/admin/overview', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const [userPage, profilesSnapshot, adminSnapshot] = await Promise.all([
+    firebaseAuth.listUsers(1000),
+    firestoreDb.collection('profiles').get(),
+    firestoreDb.collection('admins').get()
+  ]);
+  const activeUsers = userPage.users.filter(user => !user.disabled).length;
+  const disabledUsers = userPage.users.length - activeUsers;
+  const activeAdmins = adminSnapshot.docs.filter(document => document.data()?.enabled !== false).length;
+  res.json({
+    totalUsers: userPage.users.length,
+    activeUsers,
+    disabledUsers,
+    profiles: profilesSnapshot.size,
+    admins: activeAdmins,
+    hasMoreUsers: Boolean(userPage.pageToken)
+  });
+});
+
+app.get('/api/admin/users', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
+  const page = await firebaseAuth.listUsers(limit, req.query.pageToken || undefined);
+  const profileSnapshots = page.users.length
+    ? await firestoreDb.getAll(...page.users.map(user => firestoreDb.collection('profiles').doc(user.uid)))
+    : [];
+  const profilesByUid = new Map(profileSnapshots.map(snapshot => [snapshot.id, snapshot.exists ? snapshot.data() : {}]));
+  const search = String(req.query.search || '').trim().toLowerCase();
+  const users = page.users
+    .map(user => {
+      const profile = profilesByUid.get(user.uid) || {};
+      return {
+        uid: user.uid,
+        email: user.email || profile.email || '',
+        displayName: user.displayName || profile.name || '',
+        photoURL: user.photoURL || profile.photoURL || '',
+        phoneNumber: user.phoneNumber || '',
+        disabled: Boolean(user.disabled),
+        emailVerified: Boolean(user.emailVerified),
+        createdAt: user.metadata?.creationTime || null,
+        lastSignInAt: user.metadata?.lastSignInTime || null,
+        profile: {
+          name: profile.name || '',
+          lastName: profile.lastName || '',
+          age: profile.age ?? null,
+          city: profile.city || '',
+          plan: profile.plan || '',
+          trainingLocation: profile.trainingLocation || '',
+          followsDiet: Boolean(profile.followsDiet),
+          updatedAt: profile.updatedAt || null
+        }
+      };
+    })
+    .filter(user => !search || [user.email, user.displayName, user.uid, user.profile.city]
+      .some(value => String(value).toLowerCase().includes(search)));
+  res.json({ users, nextPageToken: page.pageToken || null });
+});
+
+app.get('/api/admin/users/:uid', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const user = await firebaseAuth.getUser(req.params.uid);
+  const profileSnapshot = await firestoreDb.collection('profiles').doc(user.uid).get();
+  const adminSnapshot = await firestoreDb.collection('admins').doc(user.uid).get();
+  res.json({
+    uid: user.uid,
+    email: user.email || '',
+    displayName: user.displayName || '',
+    photoURL: user.photoURL || '',
+    phoneNumber: user.phoneNumber || '',
+    disabled: Boolean(user.disabled),
+    emailVerified: Boolean(user.emailVerified),
+    createdAt: user.metadata?.creationTime || null,
+    lastSignInAt: user.metadata?.lastSignInTime || null,
+    profile: profileSnapshot.exists ? profileSnapshot.data() : {},
+    admin: adminSnapshot.exists ? { enabled: adminSnapshot.data()?.enabled !== false } : { enabled: false }
+  });
+});
+
+app.patch('/api/admin/users/:uid/status', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  if (req.params.uid === req.firebaseUser.uid) {
+    return res.status(400).json({ error: 'No puedes desactivar tu propia cuenta' });
+  }
+  const disabled = Boolean(req.body.disabled);
+  const user = await firebaseAuth.updateUser(req.params.uid, { disabled });
+  res.json({ uid: user.uid, disabled: Boolean(user.disabled) });
+});
+
+app.patch('/api/admin/users/:uid/role', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  if (req.params.uid === req.firebaseUser.uid) {
+    return res.status(400).json({ error: 'No puedes modificar tu propio rol' });
+  }
+  const enabled = Boolean(req.body.enabled);
+  await firestoreDb.collection('admins').doc(req.params.uid).set({
+    enabled,
+    updatedAt: new Date(),
+    updatedBy: req.firebaseUser.uid
+  }, { merge: true });
+  res.json({ uid: req.params.uid, enabled });
 });
 
 // PUT /api/user/:id - verificar propiedad del recurso o admin
