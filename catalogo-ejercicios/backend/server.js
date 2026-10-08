@@ -108,6 +108,7 @@ app.get('/api/health', (req, res) => {
 // ========== RUTAS DE TIENDA ==========
 app.get('/api/storeitems', async (req, res) => {
   try {
+    res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
     const storeItems = await getStoreItems();
     res.json(storeItems);
   } catch (error) {
@@ -118,6 +119,7 @@ app.get('/api/storeitems', async (req, res) => {
 
 // ========== RUTAS DE EJERCICIOS ==========
 app.get('/api/exercises', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
   const exercises = await getExercises();
   const limit = Number.parseInt(req.query.limit, 10);
   res.json(Number.isInteger(limit) && limit > 0 ? exercises.slice(0, limit) : exercises);
@@ -151,6 +153,7 @@ app.get('/api/exercises/category/:category', async (req, res) => {
 
 // ========== RUTAS DE CATEGORÍAS ==========
 app.get('/api/categories', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
   const exercises = await getExercises();
   const categoriesInData = new Set(exercises.map(exercise => String(exercise.category)).filter(Boolean));
   const legacyCategories = new Set(['body', 'cardio', 'flexibilidad', 'fuerza']);
@@ -569,6 +572,7 @@ app.get('/api/recommendations/:userId', async (req, res) => {
 
 // ========== RUTAS DE NUTRICIÓN ==========
 app.get('/api/nutrition', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
   const ingredients = await getIngredients();
   const limit = Number.parseInt(req.query.limit, 10);
   res.json(Number.isInteger(limit) && limit > 0 ? ingredients.slice(0, limit) : ingredients);
