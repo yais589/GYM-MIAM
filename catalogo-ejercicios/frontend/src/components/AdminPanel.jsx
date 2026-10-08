@@ -7,6 +7,7 @@ import {
   setUserDisabled
 } from '../services/admin'
 import '../styles/AdminPanel.css'
+import AdminAI from './AdminAI'
 
 function AdminPanel({ language, onClose }) {
   const isSpanish = language === 'es'
@@ -18,6 +19,7 @@ function AdminPanel({ language, onClose }) {
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [nextPageToken, setNextPageToken] = useState('')
+  const [showAdminAI, setShowAdminAI] = useState(true)
 
   const labels = isSpanish
     ? {
@@ -48,7 +50,35 @@ function AdminPanel({ language, onClose }) {
         loading: 'Cargando...',
         retry: 'Reintentar',
         yes: 'Sí',
-        no: 'No'
+        no: 'No',
+        activityTitle: 'Actividad de usuarios',
+        recentActivity: 'Usuarios activos en los últimos 30 días',
+        habitsTitle: 'Hábitos de entrenamiento',
+        gym: 'Gimnasio',
+        home: 'Casa',
+        other: 'Sin especificar',
+        plansTitle: 'Distribución de planes',
+        savedTitle: 'Ejercicios guardados',
+        savedExercises: 'Ejercicios guardados',
+        savedUsers: 'Usuarios con favoritos',
+        dataNote: 'Sesiones registradas de forma persistente en Firestore.',
+        sessions: 'Sesiones',
+        minutes: 'Minutos',
+        nutritionSaved: 'Alimentos favoritos',
+        cart: 'Productos en carritos',
+        storeTitle: 'Tienda',
+        orders: 'Pedidos',
+        unitsSold: 'Unidades vendidas',
+        revenue: 'Ingresos registrados',
+        exerciseCount: 'Ejercicios',
+        nutritionCount: 'Nutrición',
+        cartCount: 'Carrito',
+        workouts: 'Sesiones de entrenamiento'
+        ,generatedPlans: 'Planes generados'
+        ,trainingPlans: 'Planes de entrenamiento'
+        ,nutritionPlans: 'Planes de nutrición'
+        ,popular: 'Más guardados por usuarios'
+        ,ai: 'IA administrativa'
       }
     : {
         title: 'Administration panel',
@@ -78,8 +108,43 @@ function AdminPanel({ language, onClose }) {
         loading: 'Loading...',
         retry: 'Retry',
         yes: 'Yes',
-        no: 'No'
+        no: 'No',
+        activityTitle: 'User activity',
+        recentActivity: 'Active users in the last 30 days',
+        habitsTitle: 'Training habits',
+        gym: 'Gym',
+        home: 'Home',
+        other: 'Not specified',
+        plansTitle: 'Plan distribution',
+        savedTitle: 'Saved exercises',
+        savedExercises: 'Saved exercises',
+        savedUsers: 'Users with favorites',
+        dataNote: 'Workout sessions are persisted in Firestore.',
+        sessions: 'Sessions',
+        minutes: 'Minutes',
+        nutritionSaved: 'Saved nutrition',
+        cart: 'Products in carts',
+        storeTitle: 'Store',
+        orders: 'Orders',
+        unitsSold: 'Units sold',
+        revenue: 'Recorded revenue',
+        exerciseCount: 'Exercises',
+        nutritionCount: 'Nutrition',
+        cartCount: 'Cart',
+        workouts: 'Training sessions'
+        ,generatedPlans: 'Generated plans'
+        ,trainingPlans: 'Training plans'
+        ,nutritionPlans: 'Nutrition plans'
+        ,popular: 'Most saved by users'
+        ,ai: 'Admin AI'
       }
+
+  const formatPlan = (value) => {
+    const planNames = isSpanish
+      ? { free: 'Gratuito', pro: '3 meses', elite: '12 meses', admin: 'Administrador' }
+      : { free: 'Free', pro: '3 months', elite: '12 months', admin: 'Administrator' }
+    return planNames[String(value || '').toLowerCase()] || (value || (isSpanish ? 'Sin plan' : 'No plan'))
+  }
 
   const load = async (reset = true) => {
     setLoading(true)
@@ -121,6 +186,7 @@ function AdminPanel({ language, onClose }) {
         activeUsers: current.activeUsers + (result.disabled ? -1 : 1),
         disabledUsers: current.disabledUsers + (result.disabled ? 1 : -1)
       })
+      window.alert(result.message)
     } catch (actionErrorValue) {
       setActionError(actionErrorValue.message)
     }
@@ -132,6 +198,7 @@ function AdminPanel({ language, onClose }) {
       const result = await setAdminRole(selected.uid, !selected.admin?.enabled)
       setSelected(current => ({ ...current, admin: { enabled: result.enabled } }))
       setOverview(current => current && { ...current, admins: current.admins + (result.enabled ? 1 : -1) })
+      window.alert(result.message)
     } catch (actionErrorValue) {
       setActionError(actionErrorValue.message)
     }
@@ -147,6 +214,10 @@ function AdminPanel({ language, onClose }) {
         </div>
         <button type="button" className="admin-close" onClick={onClose}>{labels.close}</button>
       </div>
+      <div className="admin-ai-toggle-row">
+        <button type="button" className="admin-ai-toggle" onClick={() => setShowAdminAI(current => !current)}>{showAdminAI ? '−' : '+'} {labels.ai}</button>
+      </div>
+      {showAdminAI && <AdminAI language={language} />}
 
       {error && <div className="admin-alert">{error} <button type="button" onClick={() => load()}>{labels.retry}</button></div>}
 
@@ -159,6 +230,56 @@ function AdminPanel({ language, onClose }) {
             [labels.admins, overview.admins, 'admins'],
             [labels.profiles, overview.profiles, 'profiles']
           ].map(([label, value, tone]) => <article className={`admin-metric ${tone}`} key={tone}><strong>{value}</strong><span>{label}</span></article>)}
+        </div>
+      )}
+
+      {overview && (
+        <div className="admin-insights">
+          <article className="admin-insight-card">
+            <h3>{labels.activityTitle}</h3>
+            <div className="admin-big-stat">{overview.activity?.recentActivityUsers || 0}</div>
+            <p>{labels.recentActivity}</p>
+            <small>{labels.dataNote}</small>
+            <div className="admin-activity-stats">
+              <span><b>{overview.activity?.totalWorkouts || 0}</b>{labels.sessions}</span>
+              <span><b>{overview.activity?.totalMinutes || 0}</b>{labels.minutes}</span>
+            </div>
+          </article>
+          <article className="admin-insight-card">
+            <h3>{labels.habitsTitle}</h3>
+            {[
+              [labels.gym, overview.habits?.locations?.gym || 0],
+              [labels.home, overview.habits?.locations?.home || 0],
+              [labels.other, overview.habits?.locations?.other || 0]
+            ].map(([label, value]) => <div className="admin-bar-row" key={label}><span>{label}</span><b>{value}</b><i><em style={{ width: `${overview.totalUsers ? Math.min(100, value / overview.totalUsers * 100) : 0}%` }} /></i></div>)}
+          </article>
+          <article className="admin-insight-card">
+            <h3>{labels.storeTitle}</h3>
+            <div className="admin-saved-grid">
+              <div><strong>{overview.store?.orders || 0}</strong><span>{labels.orders}</span></div>
+              <div><strong>{overview.store?.unitsSold || 0}</strong><span>{labels.unitsSold}</span></div>
+            </div>
+            <p className="admin-store-revenue">{labels.revenue}: €{Number(overview.store?.revenue || 0).toFixed(2)}</p>
+          </article>
+          <article className="admin-insight-card">
+            <h3>{labels.savedTitle}</h3>
+            <div className="admin-saved-grid">
+              <div><strong>{overview.saved?.exerciseCount || 0}</strong><span>{labels.savedExercises}</span></div>
+              <div><strong>{overview.saved?.usersWithSavedExercises || 0}</strong><span>{labels.savedUsers}</span></div>
+            </div>
+          </article>
+          <article className="admin-insight-card">
+            <h3>{labels.plansTitle}</h3>
+            {Object.entries(overview.habits?.plans || {}).map(([plan, count]) => <div className="admin-plan-row" key={plan}><span>{formatPlan(plan)}</span><strong>{count}</strong></div>)}
+            <div className="admin-plan-row"><span>{labels.generatedPlans}</span><strong>{overview.habits?.generatedPlans?.total || 0}</strong></div>
+            <div className="admin-plan-row"><span>{labels.trainingPlans}</span><strong>{overview.habits?.generatedPlans?.training || 0}</strong></div>
+            <div className="admin-plan-row"><span>{labels.nutritionPlans}</span><strong>{overview.habits?.generatedPlans?.nutrition || 0}</strong></div>
+          </article>
+          <article className="admin-insight-card admin-popular-card">
+            <h3>{labels.popular}</h3>
+            {(overview.saved?.topExercises || []).map(item => <div className="admin-plan-row" key={item.id}><span>Ejercicio #{item.id}</span><strong>{item.users}</strong></div>)}
+            {!overview.saved?.topExercises?.length && <p>{labels.never}</p>}
+          </article>
         </div>
       )}
 
@@ -189,7 +310,7 @@ function AdminPanel({ language, onClose }) {
             <>
               <div className="admin-detail-identity"><span className="admin-avatar large">{(selected.displayName || selected.email || '?').charAt(0).toUpperCase()}</span><div><strong>{selected.displayName || selected.email || selected.uid}</strong><small>{selected.email || labels.never}</small></div></div>
               <div className="admin-detail-block"><h4>{labels.account}</h4><p><b>{labels.uid}:</b> <code>{selected.uid}</code></p><p><b>{labels.verified}:</b> {selected.emailVerified ? labels.yes : labels.no}</p><p><b>{labels.lastAccess}:</b> {selected.lastSignInAt ? new Date(selected.lastSignInAt).toLocaleString() : labels.never}</p></div>
-              <div className="admin-detail-block"><h4>{labels.profile}</h4><p><b>{labels.plan}:</b> {selected.profile?.plan || labels.never}</p><p><b>{labels.city}:</b> {selected.profile?.city || labels.never}</p><p><b>{labels.verified}:</b> {selected.profile?.name || labels.never}</p></div>
+              <div className="admin-detail-block"><h4>{labels.profile}</h4><p><b>{labels.plan}:</b> {formatPlan(selected.profile?.plan)}</p><p><b>{labels.city}:</b> {selected.profile?.city || labels.never}</p><p><b>{labels.exerciseCount}:</b> {selected.profile?.favoriteExerciseCount || 0}</p><p><b>{labels.nutritionCount}:</b> {selected.profile?.favoriteNutritionCount || 0}</p><p><b>{labels.cartCount}:</b> {selected.profile?.cartItemCount || 0}</p><p><b>{labels.workouts}:</b> {selected.profile?.workoutCount || 0}</p><p><b>{labels.generatedPlans}:</b> {selected.profile?.generatedPlanCount || 0}</p><p><b>{labels.trainingPlans}:</b> {selected.profile?.generatedTrainingPlanCount || 0}</p><p><b>{labels.nutritionPlans}:</b> {selected.profile?.generatedNutritionPlanCount || 0}</p></div>
               {actionError && <div className="admin-alert small">{actionError}</div>}
               <div className="admin-actions"><button type="button" onClick={updateStatus}>{selected.disabled ? labels.unblock : labels.block}</button><button type="button" className="secondary" onClick={updateRole}>{selected.admin?.enabled ? labels.revoke : labels.grant}</button></div>
             </>

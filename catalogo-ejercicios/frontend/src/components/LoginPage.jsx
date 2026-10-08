@@ -20,6 +20,11 @@ function LoginPage({ language, onSignedIn, onBack }) {
     if (error.code === 'auth/unauthorized-continue-uri' || error.code === 'auth/invalid-continue-uri') return text.domainError
     if (error.code === 'auth/network-request-failed') return text.networkError
     if (error.code === 'auth/quota-exceeded') return text.quotaError
+    if (error.code === 'auth/user-disabled') {
+      return isSpanish
+        ? 'Tu cuenta ha sido bloqueada por un administrador.'
+        : 'Your account has been blocked by an administrator.'
+    }
     return `${text.error} (${error.code || 'unknown-error'})`
   }
 

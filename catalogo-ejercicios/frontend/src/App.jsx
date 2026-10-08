@@ -60,10 +60,16 @@ function App() {
       try {
         const profile = await getProfile()
         setUser(profile)
-        setIsAdmin(profile?.isAdmin === true)
-        setRoleReady(true)
-      } catch {
+        setIsAdmin(Boolean(profile?.isAdmin))
+      } catch (error) {
+        if (error?.code === 'account-disabled') {
+          await signOut(auth)
+          window.alert(language === 'es'
+            ? 'Tu cuenta ha sido bloqueada por un administrador.'
+            : 'Your account has been blocked by an administrator.')
+        }
         setUser({ email: firebaseUser.email })
+        setIsAdmin(false)
         setRoleReady(true)
       }
     })
@@ -85,16 +91,30 @@ function App() {
 
   const saveUser = async (userData) => {
     try {
-      const savedUser = await saveProfile(userData)
+      const profileData = plan ? { ...userData, plan } : userData
+      const savedUser = await saveProfile(profileData)
       setUser(savedUser)
       setIsEditing(false)
       setShowProfile(true)
       setShowAdminPanel(false)
+      window.setTimeout(() => {
+        document.getElementById('profile-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 0)
+      return savedUser
     } catch (error) {
       console.error('Error saving user:', error)
       window.alert(language === 'es'
-        ? `No se pudo guardar el perfil: ${error.message}`
-        : `The profile could not be saved: ${error.message}`)
+        ? error.code === 'session-expired'
+          ? 'La sesión ha caducado. Inicia sesión de nuevo para guardar el perfil.'
+          : `No se pudo guardar el perfil: ${error.message}`
+        : error.code === 'session-expired'
+          ? 'Your session expired. Sign in again to save your profile.'
+          : `The profile could not be saved: ${error.message}`)
+      if (error.code === 'session-expired') {
+        setShowProfile(false)
+        setShowLogin(true)
+      }
+      return null
     }
   }
 
