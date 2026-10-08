@@ -99,6 +99,23 @@
   cursor: pointer;
 }
 
+.welcome-admin-btn {
+  flex: 1;
+  margin-top: 24px;
+  padding: 13px 18px;
+  border: 1px solid #f2c879;
+  border-radius: 8px;
+  color: #f2c879;
+  background: rgba(242, 200, 121, 0.08);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.welcome-admin-btn:hover {
+  background: rgba(242, 200, 121, 0.2);
+}
+
 .welcome-plan-btn:hover {
   background: rgba(143, 227, 216, 0.2);
 }
@@ -118,7 +135,8 @@
   }
 
   .welcome-logout-btn,
-  .welcome-plan-btn {
+  .welcome-plan-btn,
+  .welcome-admin-btn {
     margin-top: 0;
   }
 

@@ -67,9 +67,12 @@ let ingredientsLoadPromise = null;
 let storeItemsCache = null;
 let storeItemsCacheTime = 0;
 let storeItemsLoadPromise = null;
-const EXERCISES_CACHE_TTL = 5 * 60 * 1000;
-const INGREDIENTS_CACHE_TTL = 10 * 60 * 1000;
-const STORE_ITEMS_CACHE_TTL = 5 * 60 * 1000;
+// Los catálogos cambian poco. Mantenerlos en memoria evita repetir lecturas
+// completas de Firestore cada vez que Render reinicia una petición.
+const CATALOG_CACHE_TTL = 30 * 60 * 1000;
+const EXERCISES_CACHE_TTL = Number.parseInt(process.env.EXERCISES_CACHE_TTL_MS, 10) || CATALOG_CACHE_TTL;
+const INGREDIENTS_CACHE_TTL = Number.parseInt(process.env.INGREDIENTS_CACHE_TTL_MS, 10) || CATALOG_CACHE_TTL;
+const STORE_ITEMS_CACHE_TTL = Number.parseInt(process.env.STORE_ITEMS_CACHE_TTL_MS, 10) || CATALOG_CACHE_TTL;
 
 // Cuando Firestore falla (cuota agotada, red...) el SDK reintenta durante
 // decenas de segundos y bloquea las respuestas del asistente. Si eso pasa,

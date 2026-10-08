@@ -108,8 +108,11 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
 
   useEffect(() => {
     if (!cartReady || !user) return
-    saveProfileCart(cart.map(({ id, quantity }) => ({ id, quantity })))
-      .catch(error => console.error('Error saving cart:', error))
+    const timeoutId = window.setTimeout(() => {
+      saveProfileCart(cart.map(({ id, quantity }) => ({ id, quantity })))
+        .catch(error => console.error('Error saving cart:', error))
+    }, 400)
+    return () => window.clearTimeout(timeoutId)
   }, [cart, cartReady, user])
 
   const categories = useMemo(() => {

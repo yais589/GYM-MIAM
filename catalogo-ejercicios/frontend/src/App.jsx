@@ -7,6 +7,7 @@ import Shop from './components/Shop'
 import AIAssistant from './components/AIAssistant'
 import UserSection from './components/UserSection'
 import Welcome from './components/Welcome'
+import AdminPanel from './components/AdminPanel'
 import LoginPage from './components/LoginPage'
 import Footer from './components/Footer'
 import CookieBanner from './components/CookieBanner'
@@ -34,6 +35,7 @@ function App() {
   const [showNutritionCheckout, setShowNutritionCheckout] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [showPlanSelector, setShowPlanSelector] = useState(false)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   const adminUser = Boolean(isAdmin || isAdminAccount(user))
   const { plan, perms, changePlan, hasNutrition, unlockNutrition, planReady } = usePlan(authUser, adminUser)
@@ -87,6 +89,7 @@ function App() {
       setUser(savedUser)
       setIsEditing(false)
       setShowProfile(true)
+      setShowAdminPanel(false)
     } catch (error) {
       console.error('Error saving user:', error)
       window.alert(language === 'es'
@@ -100,6 +103,7 @@ function App() {
     setIsAdmin(false)
     setIsEditing(false)
     setShowProfile(false)
+    setShowAdminPanel(false)
     setShowPlanSelector(false)
     signOut(auth)
   }
@@ -282,7 +286,9 @@ function App() {
             )}
             {authUser && showProfile && (
               <section id="profile-section" className="profile-section">
-                {isEditing ? (
+                {showAdminPanel ? (
+                  <AdminPanel language={language} onClose={() => setShowAdminPanel(false)} />
+                ) : isEditing ? (
                   <UserSection user={user} onUserChange={saveUser} language={language} isAdmin={adminUser} />
                 ) : (
                   <Welcome
@@ -292,6 +298,7 @@ function App() {
                     onLogout={logout}
                     plan={plan}
                     onChangePlan={adminUser ? undefined : () => setShowPlanSelector(true)}
+                    onOpenAdmin={adminUser ? () => setShowAdminPanel(true) : undefined}
                   />
                 )}
               </section>
