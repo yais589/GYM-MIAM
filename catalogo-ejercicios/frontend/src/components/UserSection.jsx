@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { isAdminAccount } from '../services/usePlan'
 import '../styles/UserSection.css'
 
 const emptyForm = {
@@ -16,7 +17,7 @@ const emptyForm = {
 function UserSection({ user, onUserChange, language, onCancel, isAdmin = false }) {
   const [formData, setFormData] = useState({ ...emptyForm, ...user })
   const [saved, setSaved] = useState(false)
-  const adminUser = Boolean(isAdmin)
+  const adminUser = Boolean(isAdmin || isAdminAccount(user))
 
   useEffect(() => {
     setFormData({ ...emptyForm, ...user })
