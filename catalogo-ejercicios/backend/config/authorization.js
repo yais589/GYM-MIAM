@@ -1,7 +1,42 @@
-export async function isAdminUser(user, firestore) {
-  if (!user?.uid || !firestore) return false;
-  const snapshot = await firestore.collection('admins').doc(user.uid).get();
-  return snapshot.exists && snapshot.data()?.enabled !== false;
+const DEFAULT_ADMIN_EMAIL = 'yais589@vidalibarraquer.net';
+
+export function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+export function getAdminEmail(env = process.env) {
+  return normalizeEmail(env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL);
+}
+
+export function isAdminEmail(user, env = process.env) {
+  const email = user && typeof user === 'object' ? user.email : user;
+  return Boolean(email) && normalizeEmail(email) === getAdminEmail(env);
+}
+
+export async function resolveAdminStatus(user, firestore, env = process.env) {
+  if (!firestore) {
+    throw new Error('Firestore no está configurado');
+  }
+  if (!user?.uid) {
+    throw new Error('El usuario autenticado no tiene un identificador');
+  }
+
+  const adminReference = firestore.collection('admins').doc(user.uid);
+  const adminSnapshot = await adminReference.get();
+  const adminData = adminSnapshot.exists ? adminSnapshot.data() : null;
+  const configuredAdmin = isAdminEmail(user, env);
+
+  if (configuredAdmin && (!adminSnapshot.exists || adminData?.enabled === false)) {
+    await adminReference.set({
+      uid: user.uid,
+      email: user.email || null,
+      enabled: true,
+      updatedAt: new Date()
+    }, { merge: true });
+    return true;
+  }
+
+  return configuredAdmin || Boolean(adminSnapshot.exists && adminData?.enabled !== false);
 }
 
 export function getRequestedUserId(req) {
@@ -40,6 +75,7 @@ export function validateProfileBusinessFields(profile = {}, isAdmin = false) {
 export function parseWorkoutPayload(body = {}, isAdmin = false) {
   const exerciseId = body.exerciseId;
   const duration = Number(body.duration);
+  const sets = Number(body.sets);
   const calories = Number(body.calories);
 
   if (!isAdmin) {
@@ -56,7 +92,10 @@ export function parseWorkoutPayload(body = {}, isAdmin = false) {
     workout: {
       exerciseId: exerciseId == null || exerciseId === '' ? null : exerciseId,
       duration: Number.isFinite(duration) ? duration : 0,
+      sets: Number.isInteger(sets) && sets > 0 ? sets : 1,
       calories: Number.isFinite(calories) ? calories : 0
     }
   };
 }
+
+export { DEFAULT_ADMIN_EMAIL };

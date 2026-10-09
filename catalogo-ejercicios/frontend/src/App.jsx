@@ -7,6 +7,7 @@ import Shop from './components/Shop'
 import AIAssistant from './components/AIAssistant'
 import UserSection from './components/UserSection'
 import Welcome from './components/Welcome'
+import AdminPanel from './components/AdminPanel'
 import LoginPage from './components/LoginPage'
 import Footer from './components/Footer'
 import CookieBanner from './components/CookieBanner'
@@ -16,7 +17,7 @@ import NutritionUpsell from './components/NutritionUpsell'
 import Checkout from './components/Checkout'
 import { auth } from './services/firebase'
 import { getProfile, saveProfile } from './services/profile'
-import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan } from './services/usePlan'
+import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan, isAdminAccount } from './services/usePlan'
 import './styles/App.css'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [roleReady, setRoleReady] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [showLogin, setShowLogin] = useState(() => isSignInWithEmailLink(auth, window.location.href))
@@ -33,8 +35,9 @@ function App() {
   const [showNutritionCheckout, setShowNutritionCheckout] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [showPlanSelector, setShowPlanSelector] = useState(false)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
-  const adminUser = Boolean(isAdmin)
+  const adminUser = Boolean(isAdmin || isAdminAccount(user))
   const { plan, perms, changePlan, hasNutrition, unlockNutrition, planReady } = usePlan(authUser, adminUser)
 
   const legalPages = {
@@ -46,26 +49,35 @@ function App() {
   useEffect(() => {
     return onAuthStateChanged(auth, async (firebaseUser) => {
       setAuthUser(firebaseUser)
+      setUser(null)
+      setIsAdmin(false)
+      setRoleReady(false)
       if (firebaseUser) setShowLogin(false)
       if (!firebaseUser) {
-        setUser(null)
-        setIsAdmin(false)
+        setRoleReady(true)
         return
       }
       try {
         const profile = await getProfile()
         setUser(profile)
         setIsAdmin(Boolean(profile?.isAdmin))
-      } catch {
+      } catch (error) {
+        if (error?.code === 'account-disabled') {
+          await signOut(auth)
+          window.alert(language === 'es'
+            ? 'Tu cuenta ha sido bloqueada por un administrador.'
+            : 'Your account has been blocked by an administrator.')
+        }
         setUser({ email: firebaseUser.email })
         setIsAdmin(false)
+        setRoleReady(true)
       }
     })
   }, [])
 
   // Si el usuario se ha logado y aún no tiene un plan, mostrar el selector
   useEffect(() => {
-    if (!planReady) return
+    if (!roleReady || !planReady) return
     if (adminUser) {
       setShowPlanSelector(false)
       return
@@ -75,19 +87,34 @@ function App() {
     } else if (authUser && plan) {
       setShowPlanSelector(false)
     }
-  }, [authUser, plan, planReady, adminUser])
+  }, [authUser, plan, planReady, adminUser, roleReady])
 
   const saveUser = async (userData) => {
     try {
-      const savedUser = await saveProfile(userData)
+      const profileData = plan ? { ...userData, plan } : userData
+      const savedUser = await saveProfile(profileData)
       setUser(savedUser)
       setIsEditing(false)
       setShowProfile(true)
+      setShowAdminPanel(false)
+      window.setTimeout(() => {
+        document.getElementById('profile-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 0)
+      return savedUser
     } catch (error) {
       console.error('Error saving user:', error)
       window.alert(language === 'es'
-        ? `No se pudo guardar el perfil: ${error.message}`
-        : `The profile could not be saved: ${error.message}`)
+        ? error.code === 'session-expired'
+          ? 'La sesión ha caducado. Inicia sesión de nuevo para guardar el perfil.'
+          : `No se pudo guardar el perfil: ${error.message}`
+        : error.code === 'session-expired'
+          ? 'Your session expired. Sign in again to save your profile.'
+          : `The profile could not be saved: ${error.message}`)
+      if (error.code === 'session-expired') {
+        setShowProfile(false)
+        setShowLogin(true)
+      }
+      return null
     }
   }
 
@@ -96,6 +123,7 @@ function App() {
     setIsAdmin(false)
     setIsEditing(false)
     setShowProfile(false)
+    setShowAdminPanel(false)
     setShowPlanSelector(false)
     signOut(auth)
   }
@@ -172,7 +200,7 @@ function App() {
   // ──────────────────────────────────────────────
   // RENDER: selector de planes (sin sesión o recién logado sin plan)
   // ──────────────────────────────────────────────
-  if (showPlanSelector && !showLogin && !adminUser && !showShop) {
+  if (showPlanSelector && !showLogin && !adminUser && roleReady) {
     return (
       <div className="app">
         <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => setShowShop(true)} />
@@ -278,7 +306,9 @@ function App() {
             )}
             {authUser && showProfile && (
               <section id="profile-section" className="profile-section">
-                {isEditing ? (
+                {showAdminPanel ? (
+                  <AdminPanel language={language} onClose={() => setShowAdminPanel(false)} />
+                ) : isEditing ? (
                   <UserSection user={user} onUserChange={saveUser} language={language} isAdmin={adminUser} />
                 ) : (
                   <Welcome
@@ -288,6 +318,7 @@ function App() {
                     onLogout={logout}
                     plan={plan}
                     onChangePlan={adminUser ? undefined : () => setShowPlanSelector(true)}
+                    onOpenAdmin={adminUser ? () => setShowAdminPanel(true) : undefined}
                   />
                 )}
               </section>

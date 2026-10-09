@@ -1,12 +1,12 @@
 import { auth } from './firebase'
+import { signOut } from 'firebase/auth'
 import { apiUrl } from './apiBase'
 
 const profileRequest = async (url, options = {}) => {
   const user = auth.currentUser
   if (!user) throw new Error('No hay una sesión activa')
 
-  const token = await user.getIdToken()
-  const response = await fetch(apiUrl(url), {
+  const request = (token) => fetch(apiUrl(url), {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -14,10 +14,28 @@ const profileRequest = async (url, options = {}) => {
       ...(options.headers || {})
     }
   })
+  let token = await user.getIdToken()
+  let response = await request(token)
+
+  // Un token puede caducar mientras la pestaña permanece abierta. Firebase
+  // suele renovarlo automáticamente, pero forzamos una renovación cuando el
+  // backend rechaza el primer token para no obligar al usuario a reloguearse.
+  if (response.status === 401) {
+    token = await user.getIdToken(true)
+    response = await request(token)
+  }
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
-    throw new Error(data.error || `No se pudo guardar el perfil (HTTP ${response.status})`)
+    const error = new Error(data.error || `No se pudo guardar el perfil (HTTP ${response.status})`)
+    error.code = data.code
+    error.status = response.status
+    if (response.status === 401) {
+      await signOut(auth).catch(() => {})
+      error.code = 'session-expired'
+      error.message = 'La sesión ha caducado. Vuelve a iniciar sesión para guardar el perfil.'
+    }
+    throw error
   }
   return response.json()
 }

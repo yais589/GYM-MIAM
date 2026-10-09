@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { isAdminAccount } from '../services/usePlan'
 import '../styles/UserSection.css'
 
 const emptyForm = {
@@ -16,7 +17,8 @@ const emptyForm = {
 function UserSection({ user, onUserChange, language, onCancel, isAdmin = false }) {
   const [formData, setFormData] = useState({ ...emptyForm, ...user })
   const [saved, setSaved] = useState(false)
-  const adminUser = Boolean(isAdmin)
+  const [saving, setSaving] = useState(false)
+  const adminUser = Boolean(isAdmin || isAdminAccount(user))
 
   useEffect(() => {
     setFormData({ ...emptyForm, ...user })
@@ -81,15 +83,21 @@ function UserSection({ user, onUserChange, language, onCancel, isAdmin = false }
     setSaved(false)
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     if (!adminUser && (!formData.name || !formData.email)) {
       window.alert(labels.required)
       return
     }
 
-    onUserChange({ ...formData })
-    setSaved(true)
+    setSaving(true)
+    setSaved(false)
+    try {
+      const result = await onUserChange({ ...formData })
+      setSaved(Boolean(result))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -140,7 +148,7 @@ function UserSection({ user, onUserChange, language, onCancel, isAdmin = false }
             <input type="checkbox" name="followsDiet" checked={Boolean(formData.followsDiet)} onChange={updateField} />
             <span>{labels.nutritionTracking}: {labels.followsDiet}</span>
           </label>
-          <button className="titan-submit" type="submit">{labels.submit}</button>
+          <button className="titan-submit" type="submit" disabled={saving}>{saving ? '...' : labels.submit}</button>
           {onCancel && <button className="titan-cancel" type="button" onClick={onCancel}>{labels.cancel}</button>}
           {saved && <p className="save-message" role="status">{labels.saved}</p>}
         </form>

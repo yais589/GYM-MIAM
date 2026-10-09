@@ -3,10 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
-import { isAdminUser, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
+import { resolveAdminStatus, requireAdmin, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { generateChatReply } from './services/aiAssistant.js';
+import { createConfirmationToken, executeAdminAction, parseAdminRequest, queryData, readConfirmationToken, verifyConfirmationToken } from './services/adminAi.js';
 import { buildNutritionPlan, buildTrainingPlan, buildCrossRecommendation } from './services/planGenerator.js';
 import { buildPlanPdf } from './services/planPdf.js';
 import { getExercises, getIngredients, getStoreItems, categoryNames, categoryIcons, firestoreRead } from './services/dataAccess.js';
@@ -43,36 +44,35 @@ process.on('unhandledRejection', (reason) => {
 
 const requireFirebaseUser = async (req, res, next) => {
   if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
-  if (!firestoreDb) return res.status(503).json({ error: 'Firestore no está configurado' });
+  if (!firestoreDb) return res.status(503).json({ error: 'Firestore no está configurado para comprobar el rol' });
   const authorization = req.headers.authorization || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Sesión requerida' });
 
   try {
     req.firebaseUser = await firebaseAuth.verifyIdToken(token);
-    req.isAdmin = await isAdminUser(req.firebaseUser, firestoreDb);
-    next();
-  } catch {
-    res.status(401).json({ error: 'Sesión no válida' });
+    const account = await firebaseAuth.getUser(req.firebaseUser.uid);
+    if (account.disabled) {
+      return res.status(403).json({
+        code: 'account-disabled',
+        error: 'Tu cuenta ha sido bloqueada por un administrador'
+      });
+    }
+  } catch (error) {
+    console.error(`Error autenticando solicitud: ${error?.code || 'unknown'} - ${error?.message || error}`);
+    return res.status(401).json({ error: 'Sesión no válida' });
   }
-};
-
-// Middleware que verifica autenticación y expone isAdmin para uso posterior
-const requireAuthWithAdmin = async (req, res, next) => {
-  if (!firebaseAuth) return res.status(503).json({ error: 'Firebase Authentication no está configurado' });
-  if (!firestoreDb) return res.status(503).json({ error: 'Firestore no está configurado' });
-  const authorization = req.headers.authorization || '';
-  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null;
-  if (!token) return res.status(401).json({ error: 'Sesión requerida' });
 
   try {
-    req.firebaseUser = await firebaseAuth.verifyIdToken(token);
-    req.isAdmin = await isAdminUser(req.firebaseUser, firestoreDb);
-    next();
-  } catch {
-    res.status(401).json({ error: 'Sesión no válida' });
+    req.isAdmin = await resolveAdminStatus(req.firebaseUser, firestoreDb);
+    return next();
+  } catch (error) {
+    console.error(`No se pudo comprobar o guardar el rol del usuario: ${error.message}`);
+    return res.status(503).json({ error: 'No se pudo comprobar el rol del usuario' });
   }
 };
+
+const requireAuthWithAdmin = requireFirebaseUser;
 
 // ========== BASE DE DATOS LOCAL (Simulada) ==========
 const db = {
@@ -108,6 +108,7 @@ app.get('/api/health', (req, res) => {
 // ========== RUTAS DE TIENDA ==========
 app.get('/api/storeitems', async (req, res) => {
   try {
+    res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
     const storeItems = await getStoreItems();
     res.json(storeItems);
   } catch (error) {
@@ -118,6 +119,7 @@ app.get('/api/storeitems', async (req, res) => {
 
 // ========== RUTAS DE EJERCICIOS ==========
 app.get('/api/exercises', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
   const exercises = await getExercises();
   const limit = Number.parseInt(req.query.limit, 10);
   res.json(Number.isInteger(limit) && limit > 0 ? exercises.slice(0, limit) : exercises);
@@ -151,6 +153,7 @@ app.get('/api/exercises/category/:category', async (req, res) => {
 
 // ========== RUTAS DE CATEGORÍAS ==========
 app.get('/api/categories', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
   const exercises = await getExercises();
   const categoriesInData = new Set(exercises.map(exercise => String(exercise.category)).filter(Boolean));
   const legacyCategories = new Set(['body', 'cardio', 'flexibilidad', 'fuerza']);
@@ -184,8 +187,10 @@ app.get('/api/categories/stats', async (req, res) => {
 app.get('/api/profile', requireAuthWithAdmin, async (req, res) => {
   const profileReference = firestoreDb.collection('profiles').doc(req.firebaseUser.uid);
   const snapshot = await profileReference.get();
-  res.json(snapshot.exists ? { id: snapshot.id, ...snapshot.data(), email: req.firebaseUser.email, isAdmin: req.isAdmin } : {
+  res.json({
+    ...(snapshot.exists ? snapshot.data() : {}),
     id: req.firebaseUser.uid,
+    uid: req.firebaseUser.uid,
     email: req.firebaseUser.email,
     isAdmin: req.isAdmin
   });
@@ -193,13 +198,21 @@ app.get('/api/profile', requireAuthWithAdmin, async (req, res) => {
 
 app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
   const { password, confirmPassword, ...profile } = req.body;
-  const validation = validateProfileBusinessFields(profile, req.isAdmin);
+  delete profile.role;
+  delete profile.isAdmin;
+  const existingSnapshot = await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).get();
+  const existingProfile = existingSnapshot.exists ? existingSnapshot.data() : {};
+  const isPlanOnlyUpdate = Object.keys(profile).length === 1 && typeof profile.plan === 'string';
+  const validation = isPlanOnlyUpdate
+    ? { ok: true }
+    : validateProfileBusinessFields({ ...existingProfile, ...profile }, req.isAdmin);
 
   if (!validation.ok) {
     return res.status(400).json({ error: validation.error });
   }
 
   const savedProfile = {
+    ...existingProfile,
     ...profile,
     uid: req.firebaseUser.uid,
     email: req.firebaseUser.email,
@@ -207,6 +220,329 @@ app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
   };
   await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).set(savedProfile, { merge: true });
   res.json({ id: req.firebaseUser.uid, ...savedProfile, isAdmin: req.isAdmin });
+});
+
+// ========== PANEL DE ADMINISTRACIÓN ==========
+// Estas rutas nunca aceptan un uid o rol enviado por el cliente como prueba de
+// permisos: requireAdmin siempre consulta admins/{uid} en Firestore.
+app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const parsed = parseAdminRequest(req.body || {});
+  const confirmationToken = req.body.confirmToken || req.body.confirmationToken;
+  const tokenDetails = !parsed.action && confirmationToken ? readConfirmationToken(confirmationToken) : null;
+  if (tokenDetails && /^(confirmo|confirm|sí|si|yes|acepto)/i.test(parsed.message)) {
+    parsed.action = tokenDetails.action;
+    parsed.target = tokenDetails.target;
+    parsed.updates = tokenDetails.updates || {};
+  }
+  if (!parsed.message || parsed.message.length > 2000) {
+    const error = parsed.message ? 'Mensaje demasiado largo' : 'Falta el mensaje';
+    return res.status(400).json({
+      error, reply: error, action: null, requiresConfirmation: false,
+      confirmationToken: null, data: null
+    });
+  }
+
+  try {
+    if (parsed.action) {
+      if (!parsed.target) {
+        return res.json({
+          reply: 'Indica el email o UID del usuario para ejecutar esta acción.',
+          action: parsed.action,
+          requiresConfirmation: false,
+          confirmationToken: null,
+          data: null
+        });
+      }
+      const confirmed = verifyConfirmationToken(
+        confirmationToken, parsed.action, parsed.target, parsed.updates
+      );
+      if (!confirmed) {
+        return res.json({
+          reply: `La acción «${parsed.action}» requiere confirmación explícita. Reenvía la misma solicitud con confirmationToken.`,
+          action: parsed.action,
+          requiresConfirmation: true,
+          confirmationToken: createConfirmationToken(parsed.action, parsed.target, parsed.updates),
+          data: { target: parsed.target }
+        });
+      }
+      const data = await executeAdminAction({
+        ...parsed,
+        requesterId: req.firebaseUser.uid,
+        auth: firebaseAuth,
+        firestore: firestoreDb
+      });
+      return res.json({
+        reply: 'Acción administrativa ejecutada correctamente.',
+        action: parsed.action,
+        requiresConfirmation: false,
+        confirmationToken: null,
+        data
+      });
+    }
+
+    const data = await queryData(parsed.message, firestoreDb, firebaseAuth);
+    if (!data) {
+      const { reply } = await generateChatReply({
+        message: parsed.message,
+        history: [],
+        userId: req.firebaseUser.uid,
+        profileData: { role: 'admin' },
+        userData: null
+      });
+      return res.json({ reply, action: null, requiresConfirmation: false, confirmationToken: null, data: null });
+    }
+    return res.json({
+      reply: 'Consulta administrativa completada. Los resultados están limitados por seguridad.',
+      action: null,
+      requiresConfirmation: false,
+      confirmationToken: null,
+      data
+    });
+  } catch (error) {
+    console.error(`Error en IA administrativa: ${error.message}`);
+    return res.status(400).json({
+      error: error.message || 'No se pudo completar la solicitud administrativa',
+      reply: error.message || 'No se pudo completar la solicitud administrativa',
+      action: parsed.action || null,
+      requiresConfirmation: false,
+      confirmationToken: null,
+      data: null
+    });
+  }
+});
+
+app.get('/api/admin/overview', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const [userPage, profilesSnapshot, adminSnapshot, workoutsSnapshot, ordersSnapshot, generatedPlansSnapshot] = await Promise.all([
+    firebaseAuth.listUsers(1000),
+    firestoreDb.collection('profiles').get(),
+    firestoreDb.collection('admins').get(),
+    firestoreDb.collection('workouts').limit(5000).get(),
+    firestoreDb.collection('orders').limit(5000).get(),
+    firestoreDb.collection('generatedPlans').limit(5000).get()
+  ]);
+  const activeUsers = userPage.users.filter(user => !user.disabled).length;
+  const disabledUsers = userPage.users.length - activeUsers;
+  const activeAdmins = adminSnapshot.docs.filter(document => document.data()?.enabled !== false).length;
+  const locations = { gym: 0, home: 0, other: 0 };
+  const plans = {};
+  let savedExerciseCount = 0;
+  let savedNutritionCount = 0;
+  let cartItemsCount = 0;
+  let usersWithCart = 0;
+  let completeProfiles = 0;
+  const exercisePopularity = {};
+  const nutritionPopularity = {};
+  profilesSnapshot.docs.forEach(document => {
+    const profile = document.data() || {};
+    const location = String(profile.trainingLocation || '').toLowerCase();
+    if (location.includes('gimnas') || location.includes('gym')) locations.gym += 1;
+    else if (location.includes('casa') || location.includes('home')) locations.home += 1;
+    else locations.other += 1;
+    const plan = String(profile.plan || 'sin plan');
+    plans[plan] = (plans[plan] || 0) + 1;
+    savedExerciseCount += Array.isArray(profile.favoriteExerciseIds) ? profile.favoriteExerciseIds.length : 0;
+    savedNutritionCount += Array.isArray(profile.favoriteNutritionIds) ? profile.favoriteNutritionIds.length : 0;
+    (profile.favoriteExerciseIds || []).forEach(id => {
+      const key = String(id);
+      exercisePopularity[key] = (exercisePopularity[key] || 0) + 1;
+    });
+    (profile.favoriteNutritionIds || []).forEach(id => {
+      const key = String(id);
+      nutritionPopularity[key] = (nutritionPopularity[key] || 0) + 1;
+    });
+    const cartItems = Array.isArray(profile.cartItems) ? profile.cartItems : [];
+    cartItemsCount += cartItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    if (cartItems.length) usersWithCart += 1;
+    if (profile.name && profile.email) completeProfiles += 1;
+  });
+  const recentActivityUsers = userPage.users.filter(user => {
+    const lastSignIn = user.metadata?.lastSignInTime ? Date.parse(user.metadata.lastSignInTime) : 0;
+    return lastSignIn >= Date.now() - 30 * 24 * 60 * 60 * 1000;
+  }).length;
+  const workoutDocs = workoutsSnapshot.docs.map(document => document.data());
+  const recentWorkoutLimit = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recentWorkouts = workoutDocs.filter(workout => {
+    const date = workout.date?.toDate ? workout.date.toDate().getTime() : Date.parse(workout.date || '');
+    return date >= recentWorkoutLimit;
+  });
+  const workoutUsers = new Set(workoutDocs.map(workout => workout.userId).filter(Boolean));
+  const orderDocs = ordersSnapshot.docs.map(document => document.data());
+  const generatedPlanDocs = generatedPlansSnapshot.docs.map(document => document.data());
+  res.json({
+    totalUsers: userPage.users.length,
+    activeUsers,
+    disabledUsers,
+    profiles: profilesSnapshot.size,
+    admins: activeAdmins,
+    hasMoreUsers: Boolean(userPage.pageToken),
+    activity: {
+      recentActivityUsers,
+      windowDays: 30,
+      persistedWorkouts: true,
+      totalWorkouts: workoutDocs.length,
+      recentWorkouts: recentWorkouts.length,
+      workoutUsers: workoutUsers.size,
+      totalMinutes: workoutDocs.reduce((sum, workout) => sum + (Number(workout.duration) || 0), 0),
+      totalCalories: workoutDocs.reduce((sum, workout) => sum + (Number(workout.calories) || 0), 0)
+    },
+    habits: {
+      locations,
+      plans
+      ,
+      generatedPlans: {
+        total: Math.max(generatedPlanDocs.length, profilesSnapshot.docs.reduce((sum, document) => sum + (Number(document.data()?.generatedPlanCount) || 0), 0)),
+        training: Math.max(generatedPlanDocs.filter(plan => plan.type === 'training').length, profilesSnapshot.docs.reduce((sum, document) => sum + (Number(document.data()?.generatedPlanCounts?.training) || 0), 0)),
+        nutrition: Math.max(generatedPlanDocs.filter(plan => plan.type === 'nutrition').length, profilesSnapshot.docs.reduce((sum, document) => sum + (Number(document.data()?.generatedPlanCounts?.nutrition) || 0), 0))
+      }
+    },
+    saved: {
+      exerciseCount: savedExerciseCount,
+      nutritionCount: savedNutritionCount,
+      usersWithSavedExercises: profilesSnapshot.docs.filter(document =>
+        (document.data()?.favoriteExerciseIds || []).length > 0
+      ).length,
+      usersWithSavedNutrition: profilesSnapshot.docs.filter(document =>
+        (document.data()?.favoriteNutritionIds || []).length > 0
+      ).length,
+      cartItemsCount,
+      usersWithCart,
+      topExercises: Object.entries(exercisePopularity)
+        .sort((first, second) => second[1] - first[1])
+        .slice(0, 8)
+        .map(([id, users]) => ({ id, users })),
+      topNutrition: Object.entries(nutritionPopularity)
+        .sort((first, second) => second[1] - first[1])
+        .slice(0, 8)
+        .map(([id, users]) => ({ id, users }))
+    },
+    store: {
+      orders: orderDocs.length,
+      unitsSold: orderDocs.reduce((sum, order) => sum + (order.items || []).reduce((items, item) => items + (Number(item.quantity) || 0), 0), 0),
+      revenue: orderDocs.reduce((sum, order) => sum + (Number(order.total) || 0), 0),
+      productsSold: orderDocs.reduce((map, order) => {
+        (order.items || []).forEach(item => {
+          const key = String(item.id);
+          map[key] = (map[key] || 0) + (Number(item.quantity) || 0);
+        });
+        return map;
+      }, {})
+    },
+    completeProfiles
+  });
+});
+
+app.get('/api/admin/users', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
+  const page = await firebaseAuth.listUsers(limit, req.query.pageToken || undefined);
+  const profileSnapshots = page.users.length
+    ? await firestoreDb.getAll(...page.users.map(user => firestoreDb.collection('profiles').doc(user.uid)))
+    : [];
+  const profilesByUid = new Map(profileSnapshots.map(snapshot => [snapshot.id, snapshot.exists ? snapshot.data() : {}]));
+  const search = String(req.query.search || '').trim().toLowerCase();
+  const users = page.users
+    .map(user => {
+      const profile = profilesByUid.get(user.uid) || {};
+      return {
+        uid: user.uid,
+        email: user.email || profile.email || '',
+        displayName: user.displayName || profile.name || '',
+        photoURL: user.photoURL || profile.photoURL || '',
+        phoneNumber: user.phoneNumber || '',
+        disabled: Boolean(user.disabled),
+        emailVerified: Boolean(user.emailVerified),
+        createdAt: user.metadata?.creationTime || null,
+        lastSignInAt: user.metadata?.lastSignInTime || null,
+        profile: {
+          name: profile.name || '',
+          lastName: profile.lastName || '',
+          age: profile.age ?? null,
+          city: profile.city || '',
+          plan: profile.plan || '',
+          trainingLocation: profile.trainingLocation || '',
+          followsDiet: Boolean(profile.followsDiet),
+          favoriteExerciseCount: Array.isArray(profile.favoriteExerciseIds) ? profile.favoriteExerciseIds.length : 0,
+          favoriteNutritionCount: Array.isArray(profile.favoriteNutritionIds) ? profile.favoriteNutritionIds.length : 0,
+          cartItemCount: Array.isArray(profile.cartItems)
+            ? profile.cartItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
+            : 0,
+          updatedAt: profile.updatedAt || null
+        }
+      };
+    })
+    .filter(user => !search || [user.email, user.displayName, user.uid, user.profile.city]
+      .some(value => String(value).toLowerCase().includes(search)));
+  res.json({ users, nextPageToken: page.pageToken || null });
+});
+
+app.get('/api/admin/users/:uid', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const user = await firebaseAuth.getUser(req.params.uid);
+  const profileSnapshot = await firestoreDb.collection('profiles').doc(user.uid).get();
+  const adminSnapshot = await firestoreDb.collection('admins').doc(user.uid).get();
+  const workoutSnapshot = await firestoreDb.collection('workouts').where('userId', '==', user.uid).get();
+  const generatedPlansSnapshot = await firestoreDb.collection('generatedPlans').where('userId', '==', user.uid).get();
+  const profile = profileSnapshot.exists ? profileSnapshot.data() : {};
+  const storedPlanCounts = profile.generatedPlanCounts || {};
+  res.json({
+    uid: user.uid,
+    email: user.email || '',
+    displayName: user.displayName || '',
+    photoURL: user.photoURL || '',
+    phoneNumber: user.phoneNumber || '',
+    disabled: Boolean(user.disabled),
+    emailVerified: Boolean(user.emailVerified),
+    createdAt: user.metadata?.creationTime || null,
+    lastSignInAt: user.metadata?.lastSignInTime || null,
+    profile: {
+      ...profile,
+      favoriteExerciseCount: Array.isArray(profile.favoriteExerciseIds) ? profile.favoriteExerciseIds.length : 0,
+      favoriteNutritionCount: Array.isArray(profile.favoriteNutritionIds) ? profile.favoriteNutritionIds.length : 0,
+      cartItemCount: Array.isArray(profile.cartItems)
+        ? profile.cartItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
+        : 0,
+      workoutCount: workoutSnapshot.size,
+      generatedPlanCount: Math.max(generatedPlansSnapshot.size, Number(profile.generatedPlanCount) || 0),
+      generatedTrainingPlanCount: Math.max(
+        generatedPlansSnapshot.docs.filter(document => document.data()?.type === 'training').length,
+        Number(storedPlanCounts.training) || 0
+      ),
+      generatedNutritionPlanCount: Math.max(
+        generatedPlansSnapshot.docs.filter(document => document.data()?.type === 'nutrition').length,
+        Number(storedPlanCounts.nutrition) || 0
+      )
+    },
+    admin: adminSnapshot.exists ? { enabled: adminSnapshot.data()?.enabled !== false } : { enabled: false }
+  });
+});
+
+app.patch('/api/admin/users/:uid/status', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  if (req.params.uid === req.firebaseUser.uid) {
+    return res.status(400).json({ error: 'No puedes desactivar tu propia cuenta' });
+  }
+  const disabled = Boolean(req.body.disabled);
+  const user = await firebaseAuth.updateUser(req.params.uid, { disabled });
+  res.json({
+    uid: user.uid,
+    disabled: Boolean(user.disabled),
+    message: disabled ? 'Cuenta bloqueada por un administrador' : 'Cuenta activada correctamente'
+  });
+});
+
+app.patch('/api/admin/users/:uid/role', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  if (req.params.uid === req.firebaseUser.uid) {
+    return res.status(400).json({ error: 'No puedes modificar tu propio rol' });
+  }
+  const enabled = Boolean(req.body.enabled);
+  await firestoreDb.collection('admins').doc(req.params.uid).set({
+    enabled,
+    updatedAt: new Date(),
+    updatedBy: req.firebaseUser.uid
+  }, { merge: true });
+  const savedAdmin = await firestoreDb.collection('admins').doc(req.params.uid).get();
+  res.json({
+    uid: req.params.uid,
+    enabled: savedAdmin.exists && savedAdmin.data()?.enabled !== false,
+    message: enabled ? 'Permisos de administrador concedidos correctamente' : 'Permisos de administrador revocados correctamente'
+  });
 });
 
 // PUT /api/user/:id - verificar propiedad del recurso o admin
@@ -261,6 +597,7 @@ app.post('/api/user/:userId/workout', requireFirebaseUser, (req, res, next) => {
     id: uuidv4(),
     exerciseId: parsed.workout.exerciseId,
     duration: parsed.workout.duration,
+    sets: parsed.workout.sets,
     calories: parsed.workout.calories,
     date: new Date(),
     completed: true
@@ -273,6 +610,17 @@ app.post('/api/user/:userId/workout', requireFirebaseUser, (req, res, next) => {
   db.stats[userId].totalCalories += workout.calories;
   db.stats[userId].totalMinutes += workout.duration;
   db.stats[userId].totalWorkouts += 1;
+
+  if (firestoreDb) {
+    await firestoreDb.collection('workouts').doc(workout.id).set({
+      ...workout,
+      userId
+    });
+    await firestoreDb.collection('profiles').doc(userId).set({
+      activityStats: db.stats[userId],
+      lastWorkoutAt: workout.date
+    }, { merge: true });
+  }
 
   res.status(201).json(workout);
 });
@@ -305,7 +653,16 @@ app.get('/api/user/:userId/workouts', requireFirebaseUser, (req, res, next) => {
   return res.status(403).json({ error: 'No tienes permiso para este recurso' });
 }, (req, res) => {
   const workouts = db.workouts[req.params.userId] || [];
-  res.json(workouts);
+  if (!firestoreDb) return res.json(workouts);
+  firestoreDb.collection('workouts')
+    .where('userId', '==', req.params.userId)
+    .limit(100)
+    .get()
+    .then(snapshot => res.json(snapshot.docs.map(document => document.data())))
+    .catch(error => {
+      console.error(`Error leyendo entrenamientos: ${error.message}`);
+      res.status(500).json({ error: 'No se pudieron cargar los entrenamientos' });
+    });
 });
 
 // GET /api/user/:userId/stats - proteger con check de propiedad o admin
@@ -313,8 +670,14 @@ app.get('/api/user/:userId/stats', requireFirebaseUser, (req, res, next) => {
   if (req.isAdmin || req.params.userId === req.firebaseUser.uid) return next();
   return res.status(403).json({ error: 'No tienes permiso para este recurso' });
 }, (req, res) => {
-  const stats = db.stats[req.params.userId] || { totalCalories: 0, totalMinutes: 0, totalWorkouts: 0 };
-  res.json(stats);
+  const fallback = db.stats[req.params.userId] || { totalCalories: 0, totalMinutes: 0, totalWorkouts: 0 };
+  if (!firestoreDb) return res.json(fallback);
+  firestoreDb.collection('profiles').doc(req.params.userId).get()
+    .then(snapshot => res.json(snapshot.data()?.activityStats || fallback))
+    .catch(error => {
+      console.error(`Error leyendo estadísticas: ${error.message}`);
+      res.status(500).json({ error: 'No se pudieron cargar las estadísticas' });
+    });
 });
 
 app.get('/api/profile/favorites', requireFirebaseUser, async (req, res) => {
@@ -376,6 +739,30 @@ app.get('/api/profile/cart', requireFirebaseUser, async (req, res) => {
         }))
     : [];
   res.json({ items });
+});
+
+app.post('/api/orders', requireFirebaseUser, async (req, res) => {
+  const items = Array.isArray(req.body.items)
+    ? req.body.items.filter(item => item && item.id != null && Number(item.quantity) > 0).map(item => ({
+      id: String(item.id),
+      name: String(item.name || 'Producto'),
+      price: Number(item.price) || 0,
+      quantity: Math.max(1, Number.parseInt(item.quantity, 10) || 1)
+    }))
+    : [];
+  if (!items.length) return res.status(400).json({ error: 'El pedido no contiene productos' });
+  const total = Number(req.body.total);
+  if (!Number.isFinite(total) || total < 0) return res.status(400).json({ error: 'El total del pedido no es válido' });
+  const order = {
+    userId: req.firebaseUser.uid,
+    email: req.firebaseUser.email || '',
+    items,
+    total,
+    status: 'completed',
+    createdAt: new Date()
+  };
+  const reference = await firestoreDb.collection('orders').add(order);
+  res.status(201).json({ id: reference.id, ...order });
 });
 
 app.put('/api/profile/cart', requireFirebaseUser, async (req, res) => {
@@ -569,6 +956,7 @@ app.get('/api/recommendations/:userId', async (req, res) => {
 
 // ========== RUTAS DE NUTRICIÓN ==========
 app.get('/api/nutrition', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
   const ingredients = await getIngredients();
   const limit = Number.parseInt(req.query.limit, 10);
   res.json(Number.isInteger(limit) && limit > 0 ? ingredients.slice(0, limit) : ingredients);
@@ -651,6 +1039,26 @@ app.post('/api/ai/generate-plan', requireAuthWithAdmin, async (req, res) => {
     const plan = planType === 'training'
       ? await buildTrainingPlan({ input: inputWithName, getExercises })
       : await buildNutritionPlan({ input: inputWithName, getIngredients });
+    await firestoreDb.collection('generatedPlans').add({
+      userId: req.firebaseUser.uid,
+      type: planType,
+      plan,
+      createdAt: new Date()
+    });
+    const profileRef = firestoreDb.collection('profiles').doc(req.firebaseUser.uid);
+    await firestoreDb.runTransaction(async transaction => {
+      const snapshot = await transaction.get(profileRef);
+      const profile = snapshot.exists ? snapshot.data() : {};
+      const counts = profile.generatedPlanCounts || {};
+      transaction.set(profileRef, {
+        generatedPlanCount: (Number(profile.generatedPlanCount) || 0) + 1,
+        generatedPlanCounts: {
+          training: (Number(counts.training) || 0) + (planType === 'training' ? 1 : 0),
+          nutrition: (Number(counts.nutrition) || 0) + (planType === 'nutrition' ? 1 : 0)
+        },
+        updatedAt: new Date()
+      }, { merge: true });
+    });
     res.json({
       plan,
       recommendation: buildCrossRecommendation(plan)
@@ -672,6 +1080,27 @@ app.post('/api/ai/accept-recommendation', requireAuthWithAdmin, async (req, res)
     const complementary = plan.type === 'nutrition'
       ? await buildTrainingPlan({ input: inputWithName, getExercises })
       : await buildNutritionPlan({ input: inputWithName, getIngredients });
+    await firestoreDb.collection('generatedPlans').add({
+      userId: req.firebaseUser.uid,
+      type: complementary.type,
+      plan: complementary,
+      createdAt: new Date(),
+      source: 'recommendation'
+    });
+    const profileRef = firestoreDb.collection('profiles').doc(req.firebaseUser.uid);
+    await firestoreDb.runTransaction(async transaction => {
+      const snapshot = await transaction.get(profileRef);
+      const profile = snapshot.exists ? snapshot.data() : {};
+      const counts = profile.generatedPlanCounts || {};
+      transaction.set(profileRef, {
+        generatedPlanCount: (Number(profile.generatedPlanCount) || 0) + 1,
+        generatedPlanCounts: {
+          training: (Number(counts.training) || 0) + (complementary.type === 'training' ? 1 : 0),
+          nutrition: (Number(counts.nutrition) || 0) + (complementary.type === 'nutrition' ? 1 : 0)
+        },
+        updatedAt: new Date()
+      }, { merge: true });
+    });
     res.json({
       combinedPlan: { type: 'combined', name: inputWithName.name, trainingPlan: plan.type === 'training' ? plan : complementary, nutritionPlan: plan.type === 'nutrition' ? plan : complementary },
       complementaryPlan: complementary,
