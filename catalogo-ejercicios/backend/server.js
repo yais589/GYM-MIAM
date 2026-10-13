@@ -292,7 +292,7 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
     }
 
     const queryContext = typeof req.body.context === 'string' ? req.body.context.slice(0, 2000) : '';
-    const data = await queryData(`${parsed.message} ${queryContext}`, firestoreDb, firebaseAuth, { getExercises, getIngredients });
+    const data = await queryData(parsed.message, firestoreDb, firebaseAuth, { getExercises, getIngredients }, queryContext);
     if (!data) {
       const { reply } = await generateChatReply({
         message: parsed.message,
@@ -398,6 +398,7 @@ app.get('/api/admin/overview', requireAuthWithAdmin, requireAdmin, async (req, r
     if (cartItems.length) usersWithCart += 1;
     if (profile.name && profile.email) completeProfiles += 1;
   });
+  plans.admin = activeAdmins;
   const recentActivityUsers = userPage.users.filter(user => {
     const lastSignIn = user.metadata?.lastSignInTime ? Date.parse(user.metadata.lastSignInTime) : 0;
     return lastSignIn >= Date.now() - 30 * 24 * 60 * 60 * 1000;
