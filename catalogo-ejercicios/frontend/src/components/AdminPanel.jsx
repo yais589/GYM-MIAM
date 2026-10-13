@@ -270,7 +270,13 @@ function AdminPanel({ language, onClose }) {
           </article>
           <article className="admin-insight-card">
             <h3>{labels.plansTitle}</h3>
-            {Object.entries(overview.habits?.plans || {}).map(([plan, count]) => <div className="admin-plan-row" key={plan}><span>{formatPlan(plan)}</span><strong>{count}</strong></div>)}
+            {Object.entries(overview.habits?.plans || {}).map(([plan, count]) => {
+              const realCount = plan.toLowerCase() === 'admin' ? overview.admins : count
+              return <div className="admin-plan-row" key={plan}><span>{formatPlan(plan)}</span><strong>{realCount}</strong></div>
+            })}
+            {!Object.prototype.hasOwnProperty.call(overview.habits?.plans || {}, 'admin') && (
+              <div className="admin-plan-row"><span>{formatPlan('admin')}</span><strong>{overview.admins}</strong></div>
+            )}
             <div className="admin-plan-row"><span>{labels.generatedPlans}</span><strong>{overview.habits?.generatedPlans?.total || 0}</strong></div>
             <div className="admin-plan-row"><span>{labels.trainingPlans}</span><strong>{overview.habits?.generatedPlans?.training || 0}</strong></div>
             <div className="admin-plan-row"><span>{labels.nutritionPlans}</span><strong>{overview.habits?.generatedPlans?.nutrition || 0}</strong></div>
