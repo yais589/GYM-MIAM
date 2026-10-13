@@ -291,7 +291,8 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
       return res.json(result);
     }
 
-    const data = await queryData(parsed.message, firestoreDb, firebaseAuth);
+    const queryContext = typeof req.body.context === 'string' ? req.body.context.slice(0, 2000) : '';
+    const data = await queryData(`${parsed.message} ${queryContext}`, firestoreDb, firebaseAuth, { getExercises, getIngredients });
     if (!data) {
       const { reply } = await generateChatReply({
         message: parsed.message,
@@ -306,7 +307,7 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
       return res.json(result);
     }
     const result = {
-      reply: 'Consulta administrativa completada. Los resultados están limitados por seguridad.',
+      reply: data.answer || 'Consulta administrativa completada con datos reales.',
       action: null,
       requiresConfirmation: false,
       confirmationToken: null,

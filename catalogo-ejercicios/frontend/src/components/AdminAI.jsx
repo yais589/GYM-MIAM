@@ -43,7 +43,8 @@ function AdminAI({ language }) {
     setMessages(current => [...current, { role: 'user', content: text }])
     setInput('')
     try {
-      const result = await askAdminAI(text, confirmationToken)
+      const previousUserMessage = [...messages].reverse().find(item => item.role === 'user')?.content || ''
+      const result = await askAdminAI(text, confirmationToken, previousUserMessage)
       setMessages(current => [...current, {
         role: 'assistant',
         content: result.reply || (isSpanish ? 'Acción completada.' : 'Action completed.'),
@@ -58,8 +59,8 @@ function AdminAI({ language }) {
   }
 
   const labels = isSpanish
-    ? { title: 'TITAN Admin IA', placeholder: 'Pregunta o indica una acción administrativa...', send: 'Enviar', confirm: 'Confirmar acción', cancel: 'Cancelar', examples: 'Ejemplos', exampleList: ['¿Cuántos usuarios activos hay?', 'Busca el usuario con email...', 'Bloquea la cuenta con UID...', 'Dame las ventas de este mes'] }
-    : { title: 'TITAN Admin AI', placeholder: 'Ask or describe an administrative action...', send: 'Send', confirm: 'Confirm action', cancel: 'Cancel', examples: 'Examples', exampleList: ['How many active users are there?', 'Find the user with email...', 'Disable the account with UID...', 'Show this month sales'] }
+    ? { title: 'TITAN Admin IA', placeholder: 'Pregunta o indica una acción administrativa...', send: 'Enviar', confirm: 'Confirmar acción', cancel: 'Cancelar', examples: 'Ejemplos', exampleList: ['¿Cuántos administradores hay?', '¿Cuántas cuentas activas hay?', '¿Cuántos favoritos de nutrición hay?', 'Busca el usuario con email...'] }
+    : { title: 'TITAN Admin AI', placeholder: 'Ask or describe an administrative action...', send: 'Send', confirm: 'Confirm action', cancel: 'Cancel', examples: 'Examples', exampleList: ['How many administrators are there?', 'How many active accounts are there?', 'How many nutrition favorites are there?', 'Find the user with email...'] }
 
   return (
     <section className="admin-ai" aria-labelledby="admin-ai-title">
@@ -74,7 +75,6 @@ function AdminAI({ language }) {
         {messages.map((message, index) => (
           <div className={`admin-ai-message ${message.role}`} key={`${message.role}-${index}`}>
             <p>{message.content}</p>
-            {message.data && <pre>{JSON.stringify(message.data, null, 2)}</pre>}
           </div>
         ))}
       </div>
