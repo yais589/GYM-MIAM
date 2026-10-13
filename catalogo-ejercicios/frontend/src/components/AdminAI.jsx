@@ -44,7 +44,9 @@ function AdminAI({ language }) {
     setInput('')
     try {
       const previousUserMessage = [...messages].reverse().find(item => item.role === 'user')?.content || ''
-      const result = await askAdminAI(text, confirmationToken, previousUserMessage)
+      const previousAssistantMessage = [...messages].reverse().find(item => item.role === 'assistant')?.content || ''
+      const conversationContext = [previousUserMessage, previousAssistantMessage].filter(Boolean).join(' | ')
+      const result = await askAdminAI(text, confirmationToken, conversationContext)
       setMessages(current => [...current, {
         role: 'assistant',
         content: result.reply || (isSpanish ? 'Acción completada.' : 'Action completed.'),
