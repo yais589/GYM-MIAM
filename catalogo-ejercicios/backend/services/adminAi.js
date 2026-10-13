@@ -141,9 +141,9 @@ async function resolveNamedUser(message, firestore, auth) {
   return match?.user || null;
 }
 
-async function queryData(message, firestore, auth, catalog = {}) {
+async function queryData(message, firestore, auth, catalog = {}, context = '') {
   const lower = message.toLowerCase();
-  const user = await resolveNamedUser(message, firestore, auth);
+  const user = await resolveNamedUser(`${message} ${context}`, firestore, auth);
   const userId = user?.uid;
   const response = {};
   if (/(admin|administrador)/.test(lower) && /(cu[aá]nt|n[uú]mero|total|hay|cu[aá]ntos)/.test(lower)) {
@@ -167,7 +167,7 @@ async function queryData(message, firestore, auth, catalog = {}) {
     const users = await listAllAuthUsers(auth);
     response.accounts = { total: users.length };
     response.answer = `Hay ${formatCount(users.length)} cuenta${users.length === 1 ? '' : 's'} registrada${users.length === 1 ? '' : 's'}.`;
-  } else if (user && /(cuenta|usuario|perfil)/.test(lower) && /(informaci[oó]n|datos|detalle|detall|todo|toda|completa)/.test(lower)) {
+  } else if (user && /(cuenta|usuario|perfil)/.test(lower) && /(info|informaci[oó]n|infromaci[oó]n|datos|detalle|detall|todo|toda|completa)/.test(lower)) {
     const [profileSnapshot, adminSnapshot, workoutsSnapshot, plansSnapshot] = await Promise.all([
       firestore.collection('profiles').doc(user.uid).get(),
       firestore.collection('admins').doc(user.uid).get(),
