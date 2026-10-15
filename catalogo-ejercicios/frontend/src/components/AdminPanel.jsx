@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import {
   getAdminOverview,
+  getAdminStoreItems,
   getAdminUser,
   getAdminUsers,
   setAdminRole,
-  setUserDisabled
+  setUserDisabled,
+  updateAdminStoreItem
 } from '../services/admin'
 import '../styles/AdminPanel.css'
 import AdminAI from './AdminAI'
@@ -20,6 +22,8 @@ function AdminPanel({ language, onClose }) {
   const [actionError, setActionError] = useState('')
   const [nextPageToken, setNextPageToken] = useState('')
   const [showAdminAI, setShowAdminAI] = useState(true)
+  const [storeItems, setStoreItems] = useState([])
+  const [storeError, setStoreError] = useState('')
 
   const labels = isSpanish
     ? {
@@ -79,6 +83,12 @@ function AdminPanel({ language, onClose }) {
         ,nutritionPlans: 'Planes de nutrición'
         ,popular: 'Más guardados por usuarios'
         ,ai: 'IA administrativa'
+        ,inventoryTitle: 'Inventario y stock'
+        ,stock: 'Stock'
+        ,sold: 'Vendidas'
+        ,price: 'Precio'
+        ,available: 'Disponible'
+        ,save: 'Guardar'
       }
     : {
         title: 'Administration panel',
@@ -137,6 +147,12 @@ function AdminPanel({ language, onClose }) {
         ,nutritionPlans: 'Nutrition plans'
         ,popular: 'Most saved by users'
         ,ai: 'Admin AI'
+        ,inventoryTitle: 'Inventory and stock'
+        ,stock: 'Stock'
+        ,sold: 'Sold'
+        ,price: 'Price'
+        ,available: 'Available'
+        ,save: 'Save'
       }
 
   const formatPlan = (value) => {
@@ -150,11 +166,19 @@ function AdminPanel({ language, onClose }) {
     setLoading(true)
     setError('')
     try {
-      const [summary, page] = await Promise.all([
+      const [summary, page, inventory] = await Promise.all([
         reset ? getAdminOverview() : Promise.resolve(overview),
-        getAdminUsers({ search: reset ? search : '', pageToken: reset ? '' : nextPageToken })
+        getAdminUsers({ search: reset ? search : '', pageToken: reset ? '' : nextPageToken }),
+        getAdminStoreItems().catch(storeLoadError => {
+          setStoreError(storeLoadError.message)
+          return { items: [] }
+        })
       ])
       if (summary) setOverview(summary)
+      if (reset) {
+        setStoreItems(inventory.items || [])
+        setStoreError('')
+      }
       setUsers(current => reset ? page.users : [...current, ...page.users])
       setNextPageToken(page.nextPageToken || '')
     } catch (loadError) {
@@ -201,6 +225,19 @@ function AdminPanel({ language, onClose }) {
       window.alert(result.message)
     } catch (actionErrorValue) {
       setActionError(actionErrorValue.message)
+    }
+  }
+
+  const updateStoreItem = async (item) => {
+    try {
+      const updated = await updateAdminStoreItem(item.id, {
+        stock: Number(item.stock),
+        price: Number(item.price),
+        isAvailable: item.isAvailable !== false
+      })
+      setStoreItems(current => current.map(currentItem => currentItem.id === item.id ? { ...currentItem, ...updated } : currentItem))
+    } catch (storeUpdateError) {
+      setStoreError(storeUpdateError.message)
     }
   }
 
@@ -288,6 +325,32 @@ function AdminPanel({ language, onClose }) {
           </article>
         </div>
       )}
+
+      <section className="admin-inventory">
+        <div className="admin-inventory-heading">
+          <div>
+            <h3>{labels.inventoryTitle}</h3>
+            <p>{isSpanish ? 'El stock se descuenta al iniciar el pago y se recupera si se cancela.' : 'Stock is reserved when payment starts and restored when it is cancelled.'}</p>
+          </div>
+          <button type="button" onClick={() => load()}>{isSpanish ? 'Actualizar' : 'Refresh'}</button>
+        </div>
+        {storeError && <div className="admin-alert small">{storeError}</div>}
+        <div className="admin-inventory-list">
+          {storeItems.map(item => (
+            <div className="admin-inventory-row" key={item.id}>
+              <div className="admin-inventory-product">
+                <strong>{item.name}</strong>
+                <small>{item.sku || item.id} · {labels.sold}: {item.sold || 0}</small>
+              </div>
+              <label>{labels.stock}<input type="number" min="0" value={item.stock} onChange={event => setStoreItems(current => current.map(currentItem => currentItem.id === item.id ? { ...currentItem, stock: event.target.value } : currentItem))} /></label>
+              <label>{labels.price}<input type="number" min="0" step="0.01" value={item.price} onChange={event => setStoreItems(current => current.map(currentItem => currentItem.id === item.id ? { ...currentItem, price: event.target.value } : currentItem))} /></label>
+              <label className="admin-inventory-toggle"><input type="checkbox" checked={item.isAvailable !== false} onChange={event => setStoreItems(current => current.map(currentItem => currentItem.id === item.id ? { ...currentItem, isAvailable: event.target.checked } : currentItem))} /> {labels.available}</label>
+              <button type="button" onClick={() => updateStoreItem(item)}>{labels.save}</button>
+            </div>
+          ))}
+          {!storeItems.length && !storeError && <p className="admin-empty">{labels.loading}</p>}
+        </div>
+      </section>
 
       <div className="admin-workspace">
         <div className="admin-users">

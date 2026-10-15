@@ -3,6 +3,9 @@
   background: #eef3f1;
   padding: 40px 20px 60px;
 }
+.field-error { display: block; margin-top: 4px; color: #b74242; font-size: .75rem; }
+.checkout-error { margin: 12px 0; padding: 10px; border-radius: 8px; color: #8e3030; background: #ffe4e4; }
+.stripe-checkout-note { margin-top: 14px; padding: 14px; border-radius: 10px; color: #245f62; background: rgba(143, 227, 216, .2); font-size: .9rem; }
 
 .back-btn {
   max-width: 1200px;
