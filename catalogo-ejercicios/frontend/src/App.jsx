@@ -188,6 +188,17 @@ function App() {
     localStorage.setItem('titan-theme', theme)
   }, [theme])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const stripeStatus = params.get('stripe')
+    if (stripeStatus === 'success' || stripeStatus === 'cancelled') {
+      window.alert(stripeStatus === 'success'
+        ? (language === 'es' ? 'Pago completado. Tu pedido está confirmado.' : 'Payment completed. Your order is confirmed.')
+        : (language === 'es' ? 'Pago cancelado. El stock reservado se liberará automáticamente.' : 'Payment cancelled. Reserved stock will be released automatically.'))
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [language])
+
   if (legalType) {
     return <LegalPage type={legalType} language={language} />
   }

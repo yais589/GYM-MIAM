@@ -323,3 +323,8 @@ export async function getStoreItems() {
 
   return storeItemsLoadPromise;
 }
+
+export function clearStoreItemsCache() {
+  storeItemsCache = null;
+  storeItemsCacheTime = 0;
+}

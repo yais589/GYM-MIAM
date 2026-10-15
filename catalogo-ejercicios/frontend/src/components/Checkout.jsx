@@ -3,395 +3,137 @@ import { auth } from '../services/firebase'
 import { apiUrl } from '../services/apiBase'
 import '../styles/Checkout.css'
 
-function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippingEnabled = true, isAdmin = false }) {
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    postalCode: '',
-    country: '',
-    cardNumber: '',
-    cardName: '',
-    expiryDate: '',
-    cvv: '',
-    saveCard: false
-  })
-
+function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippingEnabled = true }) {
+  const isStoreCheckout = shippingEnabled
+  const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', address: '', city: '', postalCode: '', country: '' })
   const [errors, setErrors] = useState({})
   const [processing, setProcessing] = useState(false)
 
-  const translations = {
-    es: {
-      title: 'Finalizar Compra',
-      shippingInfo: 'Información de Envío',
-      paymentInfo: 'Información de Pago',
-      orderSummary: 'Resumen del Pedido',
-      fullName: 'Nombre completo',
-      email: 'Correo electrónico',
-      phone: 'Teléfono',
-      address: 'Dirección',
-      city: 'Ciudad',
-      postalCode: 'Código postal',
-      country: 'País',
-      cardNumber: 'Número de tarjeta',
-      cardName: 'Nombre en la tarjeta',
-      expiryDate: 'Fecha de caducidad (MM/AA)',
-      cvv: 'CVV',
-      saveCard: 'Guardar tarjeta para futuras compras',
-      subtotal: 'Subtotal',
-      shipping: 'Envío',
-      total: 'Total',
-      placeOrder: 'Realizar Pedido',
-      backToCart: '← Volver al carrito',
-      processing: 'Procesando...',
-      orderSuccess: '¡Pedido realizado con éxito!',
-      thankYou: 'Gracias por tu compra',
-      orderNumber: 'Número de pedido',
-      free: 'Gratis',
-      eliteDiscount: 'Descuento Elite (5%)'
-    },
-    en: {
-      title: 'Checkout',
-      shippingInfo: 'Shipping Information',
-      paymentInfo: 'Payment Information',
-      orderSummary: 'Order Summary',
-      fullName: 'Full name',
-      email: 'Email',
-      phone: 'Phone',
-      address: 'Address',
-      city: 'City',
-      postalCode: 'Postal code',
-      country: 'Country',
-      cardNumber: 'Card number',
-      cardName: 'Name on card',
-      expiryDate: 'Expiry date (MM/YY)',
-      cvv: 'CVV',
-      saveCard: 'Save card for future purchases',
-      subtotal: 'Subtotal',
-      shipping: 'Shipping',
-      total: 'Total',
-      placeOrder: 'Place Order',
-      backToCart: '← Back to cart',
-      processing: 'Processing...',
-      orderSuccess: 'Order placed successfully!',
-      thankYou: 'Thank you for your purchase',
-      orderNumber: 'Order number',
-      free: 'Free',
-      eliteDiscount: 'Elite discount (5%)'
-    }
-  }
+  const t = language === 'es'
+    ? {
+        title: 'Finalizar compra', shippingInfo: 'Información de envío', paymentInfo: 'Pago seguro',
+        orderSummary: 'Resumen del pedido', fullName: 'Nombre completo', email: 'Correo electrónico',
+        phone: 'Teléfono', address: 'Dirección', city: 'Ciudad', postalCode: 'Código postal',
+        country: 'País', stripeNote: 'Serás redirigido a Stripe para completar el pago de forma segura.',
+        subtotal: 'Subtotal', shipping: 'Envío', total: 'Total', placeOrder: 'Continuar con Stripe',
+        buyModule: 'Comprar módulo', backToCart: '← Volver al carrito', processing: 'Redirigiendo...',
+        free: 'Gratis', eliteDiscount: `Descuento del plan (${shopDiscount}%)`, required: 'Obligatorio'
+      }
+    : {
+        title: 'Checkout', shippingInfo: 'Shipping information', paymentInfo: 'Secure payment',
+        orderSummary: 'Order summary', fullName: 'Full name', email: 'Email', phone: 'Phone',
+        address: 'Address', city: 'City', postalCode: 'Postal code', country: 'Country',
+        stripeNote: 'You will be redirected to Stripe to complete payment securely.',
+        subtotal: 'Subtotal', shipping: 'Shipping', total: 'Total', placeOrder: 'Continue with Stripe',
+        buyModule: 'Buy module', backToCart: '← Back to cart', processing: 'Redirecting...',
+        free: 'Free', eliteDiscount: `Plan discount (${shopDiscount}%)`, required: 'Required'
+      }
 
-  const t = translations[language]
-
-  const getSubtotal = () => {
-    return cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  }
-
-  const getShipping = () => {
-    if (!shippingEnabled) return 0
-    return getSubtotal() > 50 ? 0 : 4.99
-  }
-
-  const getDiscount = () => {
-    return shopDiscount > 0 ? getSubtotal() * (shopDiscount / 100) : 0
-  }
-
-  const getTotal = () => {
-    return getSubtotal() - getDiscount() + getShipping()
-  }
+  const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0) * item.quantity, 0)
+  const discount = shopDiscount > 0 ? subtotal * (shopDiscount / 100) : 0
+  const shipping = isStoreCheckout && subtotal - discount <= 50 ? 4.99 : 0
+  const total = subtotal - discount + shipping
 
   const validateForm = () => {
-    if (isAdmin) return true
-
-    const newErrors = {}
-
-    if (!formData.fullName.trim()) newErrors.fullName = 'Required'
-    if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email'
-    if (!formData.phone.trim()) newErrors.phone = 'Required'
-    if (!formData.address.trim()) newErrors.address = 'Required'
-    if (!formData.city.trim()) newErrors.city = 'Required'
-    if (!formData.postalCode.trim()) newErrors.postalCode = 'Required'
-    if (!formData.country.trim()) newErrors.country = 'Required'
-    if (!formData.cardNumber.trim() || formData.cardNumber.replace(/\s/g, '').length !== 16) {
-      newErrors.cardNumber = 'Invalid card number'
-    }
-    if (!formData.cardName.trim()) newErrors.cardName = 'Required'
-    if (!formData.expiryDate.trim() || !/^\d{2}\/\d{2}$/.test(formData.expiryDate)) {
-      newErrors.expiryDate = 'Invalid format (MM/YY)'
-    }
-    if (!formData.cvv.trim() || formData.cvv.length !== 3) newErrors.cvv = 'Invalid CVV'
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    if (!isStoreCheckout) return true
+    const nextErrors = {}
+    ;['fullName', 'email', 'phone', 'address', 'city', 'postalCode', 'country'].forEach(field => {
+      if (!formData[field].trim()) nextErrors[field] = t.required
+    })
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) nextErrors.email = 'Email'
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    if (!isAdmin && !validateForm()) return
-
+  const handleSubmit = async event => {
+    event.preventDefault()
+    if (!validateForm()) return
     setProcessing(true)
+    setErrors({})
+    try {
+      const currentUser = auth.currentUser
+      if (!currentUser) throw new Error(language === 'es' ? 'Necesitas iniciar sesión' : 'You need to sign in')
+      const token = await currentUser.getIdToken()
+      if (isStoreCheckout) {
+        const response = await fetch(apiUrl('/stripe/create-checkout-session'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+            discountPercent: shopDiscount,
+            customer: formData
+          })
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok || !data.url) throw new Error(data.error || 'No se pudo iniciar el pago')
+        window.location.assign(data.url)
+        return
+      }
 
-    if (!isAdmin) {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-    }
-
-    const orderNumber = 'ORD-' + Date.now()
-    if (auth.currentUser) {
-      const token = await auth.currentUser.getIdToken()
       const response = await fetch(apiUrl('/orders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          items: cart.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
-          total: getTotal()
-        })
+        body: JSON.stringify({ items: cart.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })), total })
       })
-      if (!response.ok) {
-        setProcessing(false)
-        const data = await response.json().catch(() => ({}))
-        setErrors({ submit: data.error || 'No se pudo guardar el pedido' })
-        return
-      }
-    }
-    alert(`${t.orderSuccess}\n${t.orderNumber}: ${orderNumber}`)
-
-    onComplete()
-  }
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }))
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'No se pudo guardar el pedido')
+      window.alert(language === 'es' ? '¡Módulo activado correctamente!' : 'Module activated successfully!')
+      onComplete()
+    } catch (error) {
+      setErrors({ submit: error.message })
+      setProcessing(false)
     }
   }
 
-  const formatCardNumber = (value) => {
-    const cleaned = value.replace(/\s/g, '')
-    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned
-    return formatted.slice(0, 19)
+  const handleChange = event => {
+    const { name, value } = event.target
+    setFormData(previous => ({ ...previous, [name]: value }))
+    if (errors[name] || errors.submit) setErrors(previous => ({ ...previous, [name]: '', submit: '' }))
   }
 
   return (
     <div className="checkout">
       <button className="back-btn" onClick={onBack}>{t.backToCart}</button>
-
       <div className="checkout-container">
         <div className="checkout-form">
           <h1>{t.title}</h1>
-
-          <form onSubmit={handleSubmit} noValidate={isAdmin}>
-            <section className="form-section">
+          <form onSubmit={handleSubmit} noValidate>
+            {isStoreCheckout && <section className="form-section">
               <h2>{t.shippingInfo}</h2>
-
-              <div className="form-group">
-                <label>{t.fullName} *</label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  className={errors.fullName ? 'error' : ''}
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>{t.email} *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={errors.email ? 'error' : ''}
-                  />
+              {[
+                ['fullName', t.fullName], ['email', t.email], ['phone', t.phone],
+                ['address', t.address], ['city', t.city], ['postalCode', t.postalCode], ['country', t.country]
+              ].map(([name, label]) => (
+                <div className="form-group" key={name}>
+                  <label>{label} *</label>
+                  <input name={name} type={name === 'email' ? 'email' : name === 'phone' ? 'tel' : 'text'} value={formData[name]} onChange={handleChange} className={errors[name] ? 'error' : ''} />
+                  {errors[name] && <small className="field-error">{errors[name]}</small>}
                 </div>
-                <div className="form-group">
-                  <label>{t.phone} *</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className={errors.phone ? 'error' : ''}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>{t.address} *</label>
-                <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  className={errors.address ? 'error' : ''}
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>{t.city} *</label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    className={errors.city ? 'error' : ''}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{t.postalCode} *</label>
-                  <input
-                    type="text"
-                    name="postalCode"
-                    value={formData.postalCode}
-                    onChange={handleChange}
-                    className={errors.postalCode ? 'error' : ''}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>{t.country} *</label>
-                <input
-                  type="text"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleChange}
-                  className={errors.country ? 'error' : ''}
-                />
-              </div>
-            </section>
-
+              ))}
+            </section>}
             <section className="form-section">
               <h2>{t.paymentInfo}</h2>
-
-              <div className="form-group">
-                <label>{t.cardNumber} *</label>
-                <input
-                  type="text"
-                  name="cardNumber"
-                  value={formData.cardNumber}
-                  onChange={(e) => handleChange({
-                    target: {
-                      name: 'cardNumber',
-                      value: formatCardNumber(e.target.value)
-                    }
-                  })}
-                  placeholder="1234 5678 9012 3456"
-                  className={errors.cardNumber ? 'error' : ''}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>{t.cardName} *</label>
-                <input
-                  type="text"
-                  name="cardName"
-                  value={formData.cardName}
-                  onChange={handleChange}
-                  className={errors.cardName ? 'error' : ''}
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>{t.expiryDate} *</label>
-                  <input
-                    type="text"
-                    name="expiryDate"
-                    value={formData.expiryDate}
-                    onChange={handleChange}
-                    placeholder="MM/YY"
-                    maxLength="5"
-                    className={errors.expiryDate ? 'error' : ''}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{t.cvv} *</label>
-                  <input
-                    type="text"
-                    name="cvv"
-                    value={formData.cvv}
-                    onChange={handleChange}
-                    placeholder="123"
-                    maxLength="3"
-                    className={errors.cvv ? 'error' : ''}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group checkbox-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="saveCard"
-                    checked={formData.saveCard}
-                    onChange={handleChange}
-                  />
-                  <span>{t.saveCard}</span>
-                </label>
-              </div>
+              <p>{t.stripeNote}</p>
+              <div className="stripe-checkout-note">🔒 Stripe procesa los datos de pago. TITAN GYM nunca almacena tu tarjeta.</div>
             </section>
-
-            <button
-              type="submit"
-              className="place-order-btn"
-              disabled={processing}
-            >
-              {processing ? t.processing : t.placeOrder}
+            {errors.submit && <div className="checkout-error">{errors.submit}</div>}
+            <button type="submit" className="place-order-btn" disabled={processing}>
+              {processing ? t.processing : isStoreCheckout ? t.placeOrder : t.buyModule}
             </button>
           </form>
         </div>
-
         <aside className="order-summary">
           <h2>{t.orderSummary}</h2>
-
-          <div className="order-items">
-            {cart.map(item => (
-              <div key={item.id} className="order-item">
-                {item.image ? (
-                  <img src={item.image} alt={item.name} />
-                ) : (
-                  <div className="order-image-placeholder">IMG</div>
-                )}
-                <div className="order-item-info">
-                  <h4>{item.name}</h4>
-                  <span>x{item.quantity}</span>
-                </div>
-                <span className="order-item-price">
-                  €{(item.price * item.quantity).toFixed(2)}
-                </span>
-              </div>
-            ))}
-          </div>
-
+          <div className="order-items">{cart.map(item => <div key={item.id} className="order-item">
+            {item.image ? <img src={item.image} alt={item.name} /> : <div className="order-image-placeholder">IMG</div>}
+            <div className="order-item-info"><h4>{item.name}</h4><span>x{item.quantity}</span></div>
+            <span className="order-item-price">€{(item.price * item.quantity).toFixed(2)}</span>
+          </div>)}</div>
           <div className="order-totals">
-            <div className="order-total-row">
-              <span>{t.subtotal}</span>
-              <span>€{getSubtotal().toFixed(2)}</span>
-            </div>
-            {shopDiscount > 0 && (
-              <div className="order-total-row">
-                <span>{t.eliteDiscount}</span>
-                <span style={{ color: '#16a34a' }}>−€{getDiscount().toFixed(2)}</span>
-              </div>
-            )}
-            <div className="order-total-row">
-              <span>{t.shipping}</span>
-              <span>{getShipping() === 0 ? t.free : `€${getShipping().toFixed(2)}`}</span>
-            </div>
-            <div className="order-total-row total">
-              <span>{t.total}</span>
-              <span>€{getTotal().toFixed(2)}</span>
-            </div>
+            <div className="order-total-row"><span>{t.subtotal}</span><span>€{subtotal.toFixed(2)}</span></div>
+            {discount > 0 && <div className="order-total-row"><span>{t.eliteDiscount}</span><span>−€{discount.toFixed(2)}</span></div>}
+            {isStoreCheckout && <div className="order-total-row"><span>{t.shipping}</span><span>{shipping ? `€${shipping.toFixed(2)}` : t.free}</span></div>}
+            <div className="order-total-row total"><span>{t.total}</span><span>€{total.toFixed(2)}</span></div>
           </div>
         </aside>
       </div>

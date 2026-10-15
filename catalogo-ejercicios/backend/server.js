@@ -6,15 +6,18 @@ import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
 import { resolveAdminStatus, requireAdmin, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
+import Stripe from 'stripe';
 import { generateChatReply } from './services/aiAssistant.js';
 import { createConfirmationToken, executeAdminAction, parseAdminRequest, queryData, readConfirmationToken, saveAdminInteraction, verifyConfirmationToken } from './services/adminAi.js';
 import { buildNutritionPlan, buildTrainingPlan, buildCrossRecommendation } from './services/planGenerator.js';
 import { buildPlanPdf } from './services/planPdf.js';
-import { getExercises, getIngredients, getStoreItems, categoryNames, categoryIcons, firestoreRead } from './services/dataAccess.js';
+import { getExercises, getIngredients, getStoreItems, clearStoreItemsCache, categoryNames, categoryIcons, firestoreRead } from './services/dataAccess.js';
 
 dotenv.config();
 
 const app = express();
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
 // El puerto debe ser siempre un número válido > 0. Algunos entornos definen
 // PORT=0 (puerto aleatorio) o vacío, lo que rompía el proxy del frontend.
 const parsedPort = Number.parseInt(process.env.PORT ?? '', 10);
@@ -22,6 +25,61 @@ const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 5000;
 
 // Middleware
 app.use(cors());
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).send('Stripe no está configurado');
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (error) {
+    console.error(`Firma de webhook Stripe inválida: ${error.message}`);
+    return res.status(400).send('Webhook inválido');
+  }
+
+  try {
+    const session = event.data.object;
+    const orderId = session.metadata?.orderId;
+    if (orderId && ['checkout.session.completed', 'checkout.session.expired'].includes(event.type)) {
+      const orderReference = firestoreDb.collection('orders').doc(orderId);
+      const orderSnapshot = await orderReference.get();
+      const order = orderSnapshot.exists ? orderSnapshot.data() : null;
+
+      if (order?.status === 'pending') {
+        if (event.type === 'checkout.session.completed' && session.payment_status === 'paid') {
+          await orderReference.update({
+            status: 'paid',
+            stripePaymentIntentId: session.payment_intent || null,
+            paidAt: new Date()
+          });
+        } else if (event.type === 'checkout.session.expired') {
+          await firestoreDb.runTransaction(async (transaction) => {
+            const currentSnapshot = await transaction.get(orderReference);
+            const currentOrder = currentSnapshot.exists ? currentSnapshot.data() : null;
+            if (!currentOrder || currentOrder.status !== 'pending') return;
+            for (const item of currentOrder.items || []) {
+              const itemReference = firestoreDb.collection('storeitems').doc(String(item.id));
+              const itemSnapshot = await transaction.get(itemReference);
+              if (itemSnapshot.exists) {
+                transaction.update(itemReference, {
+                  stock: Math.max(0, (Number(itemSnapshot.data().stock) || 0) + Number(item.quantity || 0)),
+                  updatedAt: new Date()
+                });
+              }
+            }
+            transaction.update(orderReference, { status: 'expired', expiredAt: new Date() });
+          });
+          clearStoreItemsCache();
+        }
+      }
+    }
+    return res.json({ received: true });
+  } catch (error) {
+    console.error(`Error procesando webhook Stripe: ${error.message}`);
+    return res.status(500).send('Error procesando webhook');
+  }
+});
 app.use(express.json());
 
 // Express 4 no captura los errores de los handlers async: una promesa rechazada
@@ -115,6 +173,159 @@ app.get('/api/storeitems', async (req, res) => {
     console.error(`Error cargando productos de tienda: ${error.message}`);
     res.status(503).json({ error: 'El catálogo de la tienda no está disponible. Sincroniza los productos e inténtalo de nuevo.' });
   }
+});
+
+app.post('/api/stripe/create-checkout-session', requireFirebaseUser, async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe no está configurado en el servidor' });
+
+  const requestedItems = Array.isArray(req.body.items)
+    ? req.body.items
+      .filter(item => item && item.id != null && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0)
+      .map(item => ({ id: String(item.id), quantity: Number(item.quantity) }))
+    : [];
+  if (!requestedItems.length) return res.status(400).json({ error: 'El carrito no contiene productos válidos' });
+
+  const discountPercent = Math.min(5, Math.max(0, Number(req.body.discountPercent) || 0));
+  const orderReference = firestoreDb.collection('orders').doc();
+  const canonicalItems = [];
+  try {
+    await firestoreDb.runTransaction(async (transaction) => {
+      const itemSnapshots = [];
+      for (const requestedItem of requestedItems) {
+        const itemReference = firestoreDb.collection('storeitems').doc(requestedItem.id);
+        const snapshot = await transaction.get(itemReference);
+        itemSnapshots.push({ requestedItem, snapshot, itemReference });
+      }
+
+      for (const { requestedItem, snapshot, itemReference } of itemSnapshots) {
+        if (!snapshot.exists) throw new Error(`Producto no encontrado: ${requestedItem.id}`);
+        const product = snapshot.data();
+        const stock = Math.max(0, Number.parseInt(product.stock, 10) || 0);
+        if (product.isAvailable === false || stock < requestedItem.quantity) {
+          throw new Error(`Stock insuficiente para ${product.name || requestedItem.id}`);
+        }
+        const price = Number(product.price);
+        if (!Number.isFinite(price) || price < 0) throw new Error(`Precio inválido para ${product.name || requestedItem.id}`);
+        const discountedPrice = Math.max(0, price * (1 - discountPercent / 100));
+        canonicalItems.push({
+          id: requestedItem.id,
+          name: String(product.name || 'Producto'),
+          price: Number(discountedPrice.toFixed(2)),
+          quantity: requestedItem.quantity,
+          originalPrice: price
+        });
+        transaction.update(itemReference, {
+          stock: stock - requestedItem.quantity,
+          updatedAt: new Date()
+        });
+      }
+    });
+    clearStoreItemsCache();
+
+    const subtotal = canonicalItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const shipping = subtotal > 50 ? 0 : 4.99;
+    const lineItems = canonicalItems.map(item => ({
+      quantity: item.quantity,
+      price_data: {
+        currency: 'eur',
+        unit_amount: Math.round(item.price * 100),
+        product_data: { name: item.name }
+      }
+    }));
+    if (shipping > 0) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: 'eur',
+          unit_amount: Math.round(shipping * 100),
+          product_data: { name: 'Envío' }
+        }
+      });
+    }
+
+    await orderReference.set({
+      userId: req.firebaseUser.uid,
+      email: req.firebaseUser.email || '',
+      items: canonicalItems,
+      total: Number((subtotal + shipping).toFixed(2)),
+      status: 'pending',
+      createdAt: new Date(),
+      reservedAt: new Date()
+    });
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      customer_email: String(req.body.customer?.email || req.firebaseUser.email || '').trim() || undefined,
+      line_items: lineItems,
+      billing_address_collection: 'required',
+      shipping_address_collection: { allowed_countries: ['ES', 'PT', 'FR', 'DE', 'IT', 'NL', 'BE'] },
+      phone_number_collection: { enabled: true },
+      metadata: { orderId: orderReference.id, userId: req.firebaseUser.uid },
+      success_url: `${frontendUrl}/?stripe=success&order_id=${orderReference.id}`,
+      cancel_url: `${frontendUrl}/?stripe=cancelled`
+    });
+    await orderReference.update({ stripeSessionId: session.id });
+    return res.json({ url: session.url });
+  } catch (error) {
+    await firestoreDb.runTransaction(async (transaction) => {
+      const orderSnapshot = await transaction.get(orderReference);
+      if (orderSnapshot.exists && orderSnapshot.data()?.status === 'pending') {
+        const order = orderSnapshot.data();
+        const itemReferences = (order.items || canonicalItems).map(item => ({
+          item,
+          reference: firestoreDb.collection('storeitems').doc(String(item.id))
+        }));
+        const itemSnapshots = [];
+        for (const itemReference of itemReferences) {
+          itemSnapshots.push({ ...itemReference, snapshot: await transaction.get(itemReference.reference) });
+        }
+        for (const { item, reference, snapshot } of itemSnapshots) {
+          if (snapshot.exists) {
+            transaction.update(reference, {
+              stock: (Number(snapshot.data().stock) || 0) + Number(item.quantity || 0),
+              updatedAt: new Date()
+            });
+          }
+        }
+        transaction.delete(orderReference);
+      }
+    }).catch(restoreError => console.error(`No se pudo liberar la reserva de stock: ${restoreError.message}`));
+    clearStoreItemsCache();
+    return res.status(400).json({ error: error.message || 'No se pudo iniciar el pago' });
+  }
+});
+
+app.get('/api/admin/storeitems', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const snapshot = await firestoreDb.collection('storeitems').get();
+  const salesSnapshot = await firestoreDb.collection('orders').where('status', 'in', ['paid', 'completed']).get();
+  const soldByProduct = {};
+  salesSnapshot.docs.forEach(document => {
+    (document.data().items || []).forEach(item => {
+      const id = String(item.id);
+      soldByProduct[id] = (soldByProduct[id] || 0) + (Number(item.quantity) || 0);
+    });
+  });
+  res.json({
+    items: snapshot.docs.map(document => ({
+      id: document.id,
+      ...document.data(),
+      stock: Math.max(0, Number.parseInt(document.data().stock, 10) || 0),
+      sold: soldByProduct[document.id] || 0
+    })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'es'))
+  });
+});
+
+app.patch('/api/admin/storeitems/:id', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const stock = Number(req.body.stock);
+  const price = Number(req.body.price);
+  if (!Number.isInteger(stock) || stock < 0) return res.status(400).json({ error: 'El stock debe ser un entero no negativo' });
+  if (!Number.isFinite(price) || price < 0) return res.status(400).json({ error: 'El precio no es válido' });
+  const reference = firestoreDb.collection('storeitems').doc(String(req.params.id));
+  const snapshot = await reference.get();
+  if (!snapshot.exists) return res.status(404).json({ error: 'Producto no encontrado' });
+  await reference.update({ stock, price: Number(price.toFixed(2)), isAvailable: req.body.isAvailable !== false, updatedAt: new Date() });
+  clearStoreItemsCache();
+  res.json({ id: snapshot.id, stock, price: Number(price.toFixed(2)), isAvailable: req.body.isAvailable !== false });
 });
 
 // ========== RUTAS DE EJERCICIOS ==========
