@@ -34,3 +34,8 @@ export const setAdminRole = (uid, enabled) => adminRequest(`/admin/users/${encod
   method: 'PATCH',
   body: JSON.stringify({ enabled })
 })
+export const getAdminStoreItems = () => adminRequest('/admin/storeitems')
+export const updateAdminStoreItem = (id, changes) => adminRequest(`/admin/storeitems/${encodeURIComponent(id)}`, {
+  method: 'PATCH',
+  body: JSON.stringify(changes)
+})

@@ -59,6 +59,28 @@
   box-shadow: 0 6px 16px rgba(15, 59, 66, 0.36);
 }
 
+.shop-admin-button {
+  padding: 12px 18px;
+  border: 1px solid #8fcfc7;
+  border-radius: 8px;
+  color: #0f3b42;
+  background: #e3f5f1;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.shop-admin-button:hover {
+  background: #c8ebe5;
+}
+
+.shop-admin-view {
+  padding: 30px 20px;
+}
+
+.shop-admin-view .admin-panel {
+  margin-bottom: 0;
+}
+
 .shop-content {
   max-width: 1600px;
   margin: 40px auto 0;
@@ -173,6 +195,11 @@
 }
 
 @media (max-width: 1024px) {
+  .shop-top-bar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
   .shop-content {
     grid-template-columns: 1fr;
     gap: 20px;

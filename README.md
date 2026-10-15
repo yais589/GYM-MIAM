@@ -49,7 +49,9 @@ La aplicacion se abre en `http://localhost:3000`.
 - Modos espanol e ingles.
 - Catalogo nutricional con datos por 100 gramos.
 - Tienda conectada a `https://api-titangym.onrender.com/storeitems`.
-- Carrito, descuentos por plan y formulario de compra.
+- Carrito, descuentos por plan y pagos seguros mediante Stripe Checkout.
+- Stock visible para usuarios y reservas transaccionales durante el pago.
+- Panel admin con inventario, stock, precio, disponibilidad, pedidos e ingresos.
 - Paginas legales y aviso de cookies.
 
 ## Configuracion
@@ -64,7 +66,7 @@ Los permisos de administrador se guardan en Firestore en `admins/{uid}` con `ena
 
 Configura `ADMIN_EMAIL` en las variables de entorno del **backend** y despliega de nuevo ese servicio. En este proyecto Vercel sirve el frontend estático; no necesita esa variable ni credenciales de Firebase Admin. Al iniciar sesión con el correo configurado, el documento `admins/{uid}` aparecerá en Firestore. Las credenciales de Firebase Admin deben permanecer únicamente en el entorno seguro del backend.
 
-Para cambiar la URL del catalogo de tienda en el frontend, define:
+La tienda usa por defecto `GET /api/storeitems` para que el stock administrado y el catálogo sean siempre el mismo. Solo define esta variable si necesitas usar temporalmente una fuente externa:
 
 ```env
 VITE_STORE_API_URL=https://api-titangym.onrender.com/storeitems
@@ -79,6 +81,22 @@ VITE_API_URL=https://tu-backend.onrender.com/api
 ```
 
 No uses `localhost` en esta variable de Vercel. En desarrollo local, si no se define `VITE_API_URL`, Vite usa el proxy a `http://localhost:5000`. El backend debe permitir solicitudes CORS desde el dominio de Vercel.
+
+### Stripe y pagos
+
+Configura en el backend (`catalogo-ejercicios/backend/.env`) las variables `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` y `FRONTEND_URL`. El navegador nunca recibe la clave secreta ni procesa datos de tarjeta: el backend valida los productos y precios en Firestore, reserva el stock y crea una sesión alojada de Stripe.
+
+En el Dashboard de Stripe crea un endpoint webhook apuntando a:
+
+```text
+https://TU_BACKEND_PUBLICO/api/stripe/webhook
+```
+
+Activa los eventos `checkout.session.completed` y `checkout.session.expired`. El primero confirma el pedido y el segundo libera automáticamente el stock reservado. Para probarlo en local puedes usar `stripe listen --forward-to localhost:5000/api/stripe/webhook`.
+
+Para probar un pago en modo test usa la tarjeta `4242 4242 4242 4242`, una fecha futura y cualquier CVC. En producción sustituye `sk_test_...` por la clave live y configura el webhook live.
+
+El panel de administración permite editar stock, precio y disponibilidad desde `Tienda > Control de tienda > Inventario y stock`. Este botón solo se renderiza para cuentas admin, y las rutas siguen protegidas por Firebase Authentication y el rol admin del backend.
 
 ### Configurar administradores
 
@@ -105,6 +123,10 @@ El UID se obtiene en **Authentication > Users**. No uses el email como ID del do
 - `GET /api/categories`
 - `GET /api/nutrition`
 - `GET /api/storeitems`
+- `POST /api/stripe/create-checkout-session`
+- `POST /api/stripe/webhook`
+- `GET /api/admin/storeitems`
+- `PATCH /api/admin/storeitems/:id`
 - `POST /api/user`
 - `GET /api/user/:id`
 - `PUT /api/user/:id`
