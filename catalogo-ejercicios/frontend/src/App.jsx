@@ -16,6 +16,7 @@ import PlanSelector from './components/PlanSelector'
 import NutritionUpsell from './components/NutritionUpsell'
 import Checkout from './components/Checkout'
 import { auth } from './services/firebase'
+import { apiUrl } from './services/apiBase'
 import { getProfile, saveProfile } from './services/profile'
 import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan, isAdminAccount } from './services/usePlan'
 import './styles/App.css'
@@ -202,12 +203,50 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const stripeStatus = params.get('stripe')
-    if (stripeStatus === 'success' || stripeStatus === 'cancelled') {
-      window.alert(stripeStatus === 'success'
-        ? (language === 'es' ? 'Pago completado. Tu pedido está confirmado.' : 'Payment completed. Your order is confirmed.')
-        : (language === 'es' ? 'Pago cancelado. El stock reservado se liberará automáticamente.' : 'Payment cancelled. Reserved stock will be released automatically.'))
-      window.history.replaceState({}, document.title, window.location.pathname)
+    const orderId = params.get('order_id')
+    if (stripeStatus !== 'success' && stripeStatus !== 'cancelled') return
+
+    let cancelled = false
+    const finish = () => window.history.replaceState({}, document.title, window.location.pathname)
+    const confirmPayment = async () => {
+      if (stripeStatus === 'cancelled' || !orderId || !auth.currentUser) {
+        window.alert(stripeStatus === 'cancelled'
+          ? (language === 'es' ? 'Pago cancelado. El stock reservado se liberará automáticamente.' : 'Payment cancelled. Reserved stock will be released automatically.')
+          : (language === 'es' ? 'Pago completado. Tu pedido está confirmado.' : 'Payment completed. Your order is confirmed.'))
+        finish()
+        return
+      }
+
+      for (let attempt = 0; attempt < 10 && !cancelled; attempt += 1) {
+        const token = await auth.currentUser.getIdToken()
+        const response = await fetch(apiUrl(`/orders/${encodeURIComponent(orderId)}`), {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        const order = await response.json().catch(() => ({}))
+        if (response.ok && order.status === 'paid') {
+          if (order.items?.some(item => item.id === 'nutrition-module')) {
+            unlockNutrition()
+            setActiveTab('nutrition')
+          }
+          window.alert(language === 'es' ? 'Pago completado. Tu pedido está confirmado.' : 'Payment completed. Your order is confirmed.')
+          finish()
+          return
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 1000))
+      }
+
+      if (!cancelled) {
+        window.alert(language === 'es'
+          ? 'El pago se ha recibido, pero todavía estamos confirmando el pedido. Recarga en unos segundos.'
+          : 'The payment was received, but the order is still being confirmed. Refresh in a few seconds.')
+        finish()
+      }
     }
+    confirmPayment().catch(error => {
+      console.error('Error confirmando el pago de Stripe:', error)
+      if (!cancelled) finish()
+    })
+    return () => { cancelled = true }
   }, [language])
 
   if (legalType) {
