@@ -54,7 +54,7 @@ function Checkout({ cart, language, onBack, onComplete, shopDiscount = 0, shippi
       const currentUser = auth.currentUser
       if (!currentUser) throw new Error(language === 'es' ? 'Necesitas iniciar sesión' : 'You need to sign in')
       const token = await currentUser.getIdToken()
-      if (isStoreCheckout) {
+      {
         const response = await fetch(apiUrl('/stripe/create-checkout-session'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

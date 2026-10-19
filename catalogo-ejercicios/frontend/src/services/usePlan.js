@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { auth } from './firebase'
+import { apiUrl } from './apiBase'
 
 export function isAdminAccount(userOrEmail) {
   return Boolean(userOrEmail && typeof userOrEmail === 'object' && userOrEmail.isAdmin === true)
@@ -90,6 +92,7 @@ export function usePlan(authUser, isAdmin = false) {
   const [planReady, setPlanReady] = useState(!authUser || adminUser)
 
   useEffect(() => {
+    const loadPlanAccess = async () => {
     if (adminUser) {
       setPlanState('admin')
       setNutritionPurchasedState(true)
@@ -119,8 +122,29 @@ export function usePlan(authUser, isAdmin = false) {
       setPlanState(null)
     }
 
-    setNutritionPurchasedState(getNutritionPurchased(authUser.uid))
-    setPlanReady(true)
+    setNutritionPurchasedState(false)
+    const token = await auth.currentUser?.getIdToken()
+    if (!token) {
+      console.error('No se pudo validar el acceso de nutrición: falta la sesión de Firebase')
+      setPlanReady(true)
+      return
+    }
+    try {
+      const response = await fetch(apiUrl('/profile/nutrition-access'), {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json()
+      setNutritionPurchasedState(Boolean(data.hasNutrition))
+      if (data.hasNutrition) setNutritionPurchased(authUser.uid, true)
+      else setNutritionPurchased(authUser.uid, false)
+    } catch (error) {
+      console.error('No se pudo validar el acceso de nutrición:', error)
+    } finally {
+      setPlanReady(true)
+    }
+    }
+    loadPlanAccess()
   }, [authUser, adminUser])
 
   const changePlan = (planId) => {
