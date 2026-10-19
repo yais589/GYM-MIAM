@@ -188,6 +188,51 @@ app.post('/api/stripe/create-checkout-session', requireFirebaseUser, async (req,
   const discountPercent = Math.min(5, Math.max(0, Number(req.body.discountPercent) || 0));
   const orderReference = firestoreDb.collection('orders').doc();
   const canonicalItems = [];
+  const nutritionOnly = requestedItems.length === 1 && requestedItems[0].id === 'nutrition-module';
+
+  if (nutritionOnly) {
+    const profileSnapshot = await firestoreDb.collection('profiles').doc(req.firebaseUser.uid).get();
+    const profilePlan = profileSnapshot.exists ? profileSnapshot.data()?.plan : null;
+    const price = profilePlan === 'pro' ? 2.99 : 4.99;
+    const nutritionItem = {
+      id: 'nutrition-module',
+      name: 'Módulo de Nutrición',
+      price,
+      quantity: 1
+    };
+    await orderReference.set({
+      userId: req.firebaseUser.uid,
+      email: req.firebaseUser.email || '',
+      items: [nutritionItem],
+      total: price,
+      status: 'pending',
+      type: 'nutrition',
+      createdAt: new Date()
+    });
+    try {
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        customer_email: String(req.firebaseUser.email || '').trim() || undefined,
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency: 'eur',
+            unit_amount: Math.round(price * 100),
+            product_data: { name: 'Módulo de Nutrición' }
+          }
+        }],
+        metadata: { orderId: orderReference.id, userId: req.firebaseUser.uid, type: 'nutrition' },
+        success_url: `${frontendUrl}/?stripe=success&order_id=${orderReference.id}`,
+        cancel_url: `${frontendUrl}/?stripe=cancelled`
+      });
+      await orderReference.update({ stripeSessionId: session.id });
+      return res.json({ url: session.url });
+    } catch (error) {
+      await orderReference.delete().catch(deleteError => console.error(`No se pudo eliminar el pedido pendiente: ${deleteError.message}`));
+      return res.status(400).json({ error: error.message || 'No se pudo iniciar el pago' });
+    }
+  }
+
   try {
     await firestoreDb.runTransaction(async (transaction) => {
       const itemSnapshots = [];
@@ -405,6 +450,18 @@ app.get('/api/profile', requireAuthWithAdmin, async (req, res) => {
     email: req.firebaseUser.email,
     isAdmin: req.isAdmin
   });
+});
+
+app.get('/api/profile/nutrition-access', requireFirebaseUser, async (req, res) => {
+  const snapshot = await firestoreDb.collection('orders')
+    .where('userId', '==', req.firebaseUser.uid)
+    .limit(100)
+    .get();
+  const hasNutrition = snapshot.docs.some(document => {
+    const order = document.data() || {};
+    return order.status === 'paid' && (order.items || []).some(item => item?.id === 'nutrition-module');
+  });
+  res.json({ hasNutrition });
 });
 
 app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
@@ -1018,6 +1075,20 @@ app.post('/api/orders', requireFirebaseUser, async (req, res) => {
   };
   const reference = await firestoreDb.collection('orders').add(order);
   res.status(201).json({ id: reference.id, ...order });
+});
+
+app.get('/api/orders/:id', requireFirebaseUser, async (req, res) => {
+  const snapshot = await firestoreDb.collection('orders').doc(String(req.params.id)).get();
+  if (!snapshot.exists || snapshot.data()?.userId !== req.firebaseUser.uid) {
+    return res.status(404).json({ error: 'Pedido no encontrado' });
+  }
+  const order = snapshot.data();
+  res.json({
+    id: snapshot.id,
+    status: order.status,
+    type: order.type || 'store',
+    items: order.items || []
+  });
 });
 
 app.put('/api/profile/cart', requireFirebaseUser, async (req, res) => {
