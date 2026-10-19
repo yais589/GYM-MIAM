@@ -148,9 +148,20 @@ function App() {
     }, 0)
   }
 
+  const openPlanSelector = () => {
+    setShowShop(false)
+    setShowNutritionCheckout(false)
+    setShowLogin(false)
+    setShowAI(false)
+    setShowProfile(false)
+    setShowAdminPanel(false)
+    setIsEditing(false)
+    setShowPlanSelector(true)
+  }
+
   // Cuando no hay sesión y clica cualquier cosa → ir a planes primero
   const handleGuestInteraction = () => {
-    setShowPlanSelector(true)
+    openPlanSelector()
   }
 
   // El usuario elige un plan en el selector
@@ -211,7 +222,7 @@ function App() {
   // ──────────────────────────────────────────────
   // RENDER: selector de planes (sin sesión o recién logado sin plan)
   // ──────────────────────────────────────────────
-  if (showPlanSelector && !showLogin && !adminUser && roleReady) {
+  if (showPlanSelector && !showLogin && !adminUser) {
     return (
       <div className="app">
         <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => setShowShop(true)} />
@@ -328,7 +339,7 @@ function App() {
                     onEdit={() => setIsEditing(true)}
                     onLogout={logout}
                     plan={plan}
-                    onChangePlan={adminUser ? undefined : () => setShowPlanSelector(true)}
+                    onChangePlan={adminUser ? undefined : openPlanSelector}
                     onOpenAdmin={adminUser ? () => setShowAdminPanel(true) : undefined}
                   />
                 )}
