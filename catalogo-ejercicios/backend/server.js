@@ -166,7 +166,10 @@ app.get('/api/health', (req, res) => {
 // ========== RUTAS DE TIENDA ==========
 app.get('/api/storeitems', async (req, res) => {
   try {
-    res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
+    // Stock y precio pueden cambiar desde el panel admin: nunca servir una
+    // copia antigua desde el navegador o un CDN.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
     const storeItems = await getStoreItems();
     res.json(storeItems);
   } catch (error) {
@@ -1445,7 +1448,7 @@ app.post('/api/ai/generate-pdf', async (req, res) => {
     return res.status(400).json({ error: 'Plan no válido' });
   }
   try {
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ size: 'A4', margin: 42, bufferPages: true });
     const chunks = [];
     doc.on('data', chunk => chunks.push(chunk));
     buildPlanPdf(doc, plan, language);
