@@ -5,6 +5,7 @@ import '../styles/WorkoutLogger.css'
 function WorkoutLogger({ user, exercises, language }) {
   const [selectedExercise, setSelectedExercise] = useState(null)
   const [duration, setDuration] = useState('')
+  const [sets, setSets] = useState('3')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -39,11 +40,13 @@ function WorkoutLogger({ user, exercises, language }) {
       await createWorkout(user.id, {
         exerciseId: parseInt(selectedExercise),
         duration: parseInt(duration),
+        sets: parseInt(sets),
         calories: Math.round((exercise.calories || 5) * parseInt(duration) / 15)
       })
       setMessage(t.success)
       setSelectedExercise(null)
       setDuration('')
+      setSets('3')
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
       setMessage(t.error)
@@ -58,6 +61,10 @@ function WorkoutLogger({ user, exercises, language }) {
     <div className="workout-logger">
       <h2>💪 {t.title}</h2>
       <form onSubmit={handleSubmit} className="workout-form">
+        <div className="form-group">
+          <label>{language === 'es' ? 'Series' : 'Sets'}</label>
+          <input type="number" value={sets} onChange={(e) => setSets(e.target.value)} min="1" max="20" required />
+        </div>
         <div className="form-group">
           <label>{t.selectExercise}</label>
           <select 

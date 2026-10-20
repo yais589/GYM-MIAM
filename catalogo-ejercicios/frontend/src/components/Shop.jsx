@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import ProductCard from './ProductCard'
 import Cart from './Cart'
 import Checkout from './Checkout'
+import AdminPanel from './AdminPanel'
 import { getStoreItems } from '../services/api'
 import { getProfileCart, saveProfileCart } from '../services/profile'
 import '../styles/Shop.css'
@@ -26,6 +27,7 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
   const [showCheckout, setShowCheckout] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [cartReady, setCartReady] = useState(false)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   const translations = {
     es: {
@@ -39,6 +41,7 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
       loadError: 'No se pudo cargar el catálogo de la tienda.',
       retry: 'Reintentar',
       noProducts: 'No hay productos disponibles en esta categoría.'
+      ,adminStore: 'Control de tienda'
     },
     en: {
       title: 'TITAN SHOP',
@@ -51,6 +54,7 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
       loadError: 'The store catalog could not be loaded.',
       retry: 'Retry',
       noProducts: 'There are no products available in this category.'
+      ,adminStore: 'Store control'
     }
   }
 
@@ -108,8 +112,11 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
 
   useEffect(() => {
     if (!cartReady || !user) return
-    saveProfileCart(cart.map(({ id, quantity }) => ({ id, quantity })))
-      .catch(error => console.error('Error saving cart:', error))
+    const timeoutId = window.setTimeout(() => {
+      saveProfileCart(cart.map(({ id, quantity }) => ({ id, quantity })))
+        .catch(error => console.error('Error saving cart:', error))
+    }, 400)
+    return () => window.clearTimeout(timeoutId)
   }, [cart, cartReady, user])
 
   const categories = useMemo(() => {
@@ -179,6 +186,14 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
     )
   }
 
+  if (showAdminPanel && isAdmin) {
+    return (
+      <div className="shop shop-admin-view">
+        <AdminPanel language={language} onClose={() => setShowAdminPanel(false)} />
+      </div>
+    )
+  }
+
   return (
     <div className="shop">
       <div className="shop-top-bar">
@@ -196,6 +211,11 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
         >
           🛒 {t.cart} {getTotalItems() > 0 && `(${getTotalItems()})`}
         </button>
+        {isAdmin && (
+          <button type="button" className="shop-admin-button" onClick={() => setShowAdminPanel(true)}>
+            ⚙️ {t.adminStore}
+          </button>
+        )}
       </div>
 
       <div className="shop-content">

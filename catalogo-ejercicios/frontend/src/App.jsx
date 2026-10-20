@@ -7,6 +7,7 @@ import Shop from './components/Shop'
 import AIAssistant from './components/AIAssistant'
 import UserSection from './components/UserSection'
 import Welcome from './components/Welcome'
+import AdminPanel from './components/AdminPanel'
 import LoginPage from './components/LoginPage'
 import Footer from './components/Footer'
 import CookieBanner from './components/CookieBanner'
@@ -15,6 +16,7 @@ import PlanSelector from './components/PlanSelector'
 import NutritionUpsell from './components/NutritionUpsell'
 import Checkout from './components/Checkout'
 import { auth } from './services/firebase'
+import { apiUrl } from './services/apiBase'
 import { getProfile, saveProfile } from './services/profile'
 import { NUTRITION_PRICE, NUTRITION_PRO_PRICE, usePlan, setPendingPlan, isAdminAccount } from './services/usePlan'
 import './styles/App.css'
@@ -34,6 +36,7 @@ function App() {
   const [showNutritionCheckout, setShowNutritionCheckout] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [showPlanSelector, setShowPlanSelector] = useState(false)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   const adminUser = Boolean(isAdmin || isAdminAccount(user))
   const { plan, perms, changePlan, hasNutrition, unlockNutrition, planReady } = usePlan(authUser, adminUser)
@@ -58,10 +61,16 @@ function App() {
       try {
         const profile = await getProfile()
         setUser(profile)
-        setIsAdmin(profile?.isAdmin === true)
-        setRoleReady(true)
-      } catch {
+        setIsAdmin(Boolean(profile?.isAdmin))
+      } catch (error) {
+        if (error?.code === 'account-disabled') {
+          await signOut(auth)
+          window.alert(language === 'es'
+            ? 'Tu cuenta ha sido bloqueada por un administrador.'
+            : 'Your account has been blocked by an administrator.')
+        }
         setUser({ email: firebaseUser.email })
+        setIsAdmin(false)
         setRoleReady(true)
       }
     })
@@ -83,15 +92,30 @@ function App() {
 
   const saveUser = async (userData) => {
     try {
-      const savedUser = await saveProfile(userData)
+      const profileData = plan ? { ...userData, plan } : userData
+      const savedUser = await saveProfile(profileData)
       setUser(savedUser)
       setIsEditing(false)
       setShowProfile(true)
+      setShowAdminPanel(false)
+      window.setTimeout(() => {
+        document.getElementById('profile-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 0)
+      return savedUser
     } catch (error) {
       console.error('Error saving user:', error)
       window.alert(language === 'es'
-        ? `No se pudo guardar el perfil: ${error.message}`
-        : `The profile could not be saved: ${error.message}`)
+        ? error.code === 'session-expired'
+          ? 'La sesión ha caducado. Inicia sesión de nuevo para guardar el perfil.'
+          : `No se pudo guardar el perfil: ${error.message}`
+        : error.code === 'session-expired'
+          ? 'Your session expired. Sign in again to save your profile.'
+          : `The profile could not be saved: ${error.message}`)
+      if (error.code === 'session-expired') {
+        setShowProfile(false)
+        setShowLogin(true)
+      }
+      return null
     }
   }
 
@@ -100,6 +124,7 @@ function App() {
     setIsAdmin(false)
     setIsEditing(false)
     setShowProfile(false)
+    setShowAdminPanel(false)
     setShowPlanSelector(false)
     signOut(auth)
   }
@@ -124,9 +149,20 @@ function App() {
     }, 0)
   }
 
+  const openPlanSelector = () => {
+    setShowShop(false)
+    setShowNutritionCheckout(false)
+    setShowLogin(false)
+    setShowAI(false)
+    setShowProfile(false)
+    setShowAdminPanel(false)
+    setIsEditing(false)
+    setShowPlanSelector(true)
+  }
+
   // Cuando no hay sesión y clica cualquier cosa → ir a planes primero
   const handleGuestInteraction = () => {
-    setShowPlanSelector(true)
+    openPlanSelector()
   }
 
   // El usuario elige un plan en el selector
@@ -164,6 +200,55 @@ function App() {
     localStorage.setItem('titan-theme', theme)
   }, [theme])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const stripeStatus = params.get('stripe')
+    const orderId = params.get('order_id')
+    if (stripeStatus !== 'success' && stripeStatus !== 'cancelled') return
+
+    let cancelled = false
+    const finish = () => window.history.replaceState({}, document.title, window.location.pathname)
+    const confirmPayment = async () => {
+      if (stripeStatus === 'cancelled' || !orderId || !auth.currentUser) {
+        window.alert(stripeStatus === 'cancelled'
+          ? (language === 'es' ? 'Pago cancelado. El stock reservado se liberará automáticamente.' : 'Payment cancelled. Reserved stock will be released automatically.')
+          : (language === 'es' ? 'Pago completado. Tu pedido está confirmado.' : 'Payment completed. Your order is confirmed.'))
+        finish()
+        return
+      }
+
+      for (let attempt = 0; attempt < 10 && !cancelled; attempt += 1) {
+        const token = await auth.currentUser.getIdToken()
+        const response = await fetch(apiUrl(`/orders/${encodeURIComponent(orderId)}`), {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        const order = await response.json().catch(() => ({}))
+        if (response.ok && order.status === 'paid') {
+          if (order.items?.some(item => item.id === 'nutrition-module')) {
+            unlockNutrition()
+            setActiveTab('nutrition')
+          }
+          window.alert(language === 'es' ? 'Pago completado. Tu pedido está confirmado.' : 'Payment completed. Your order is confirmed.')
+          finish()
+          return
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 1000))
+      }
+
+      if (!cancelled) {
+        window.alert(language === 'es'
+          ? 'El pago se ha recibido, pero todavía estamos confirmando el pedido. Recarga en unos segundos.'
+          : 'The payment was received, but the order is still being confirmed. Refresh in a few seconds.')
+        finish()
+      }
+    }
+    confirmPayment().catch(error => {
+      console.error('Error confirmando el pago de Stripe:', error)
+      if (!cancelled) finish()
+    })
+    return () => { cancelled = true }
+  }, [language])
+
   if (legalType) {
     return <LegalPage type={legalType} language={language} />
   }
@@ -176,7 +261,7 @@ function App() {
   // ──────────────────────────────────────────────
   // RENDER: selector de planes (sin sesión o recién logado sin plan)
   // ──────────────────────────────────────────────
-  if (showPlanSelector && !showLogin && !adminUser && roleReady) {
+  if (showPlanSelector && !showLogin && !adminUser) {
     return (
       <div className="app">
         <Header language={language} setLanguage={setLanguage} theme={theme} onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} onProfile={authUser ? openProfile : handleGuestInteraction} onShop={() => setShowShop(true)} />
@@ -282,7 +367,9 @@ function App() {
             )}
             {authUser && showProfile && (
               <section id="profile-section" className="profile-section">
-                {isEditing ? (
+                {showAdminPanel ? (
+                  <AdminPanel language={language} onClose={() => setShowAdminPanel(false)} />
+                ) : isEditing ? (
                   <UserSection user={user} onUserChange={saveUser} language={language} isAdmin={adminUser} />
                 ) : (
                   <Welcome
@@ -291,7 +378,8 @@ function App() {
                     onEdit={() => setIsEditing(true)}
                     onLogout={logout}
                     plan={plan}
-                    onChangePlan={adminUser ? undefined : () => setShowPlanSelector(true)}
+                    onChangePlan={adminUser ? undefined : openPlanSelector}
+                    onOpenAdmin={adminUser ? () => setShowAdminPanel(true) : undefined}
                   />
                 )}
               </section>

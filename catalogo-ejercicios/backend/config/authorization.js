@@ -75,6 +75,7 @@ export function validateProfileBusinessFields(profile = {}, isAdmin = false) {
 export function parseWorkoutPayload(body = {}, isAdmin = false) {
   const exerciseId = body.exerciseId;
   const duration = Number(body.duration);
+  const sets = Number(body.sets);
   const calories = Number(body.calories);
 
   if (!isAdmin) {
@@ -91,6 +92,7 @@ export function parseWorkoutPayload(body = {}, isAdmin = false) {
     workout: {
       exerciseId: exerciseId == null || exerciseId === '' ? null : exerciseId,
       duration: Number.isFinite(duration) ? duration : 0,
+      sets: Number.isInteger(sets) && sets > 0 ? sets : 1,
       calories: Number.isFinite(calories) ? calories : 0
     }
   };
