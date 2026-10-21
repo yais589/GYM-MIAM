@@ -189,7 +189,13 @@ function Shop({ language, user, onRequestAuth, onBackToApp, shopDiscount = 0, is
   if (showAdminPanel && isAdmin) {
     return (
       <div className="shop shop-admin-view">
-        <AdminPanel language={language} onClose={() => setShowAdminPanel(false)} />
+        <AdminPanel
+          language={language}
+          onClose={() => {
+            setShowAdminPanel(false)
+            loadProducts()
+          }}
+        />
       </div>
     )
   }

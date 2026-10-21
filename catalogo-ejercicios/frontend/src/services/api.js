@@ -49,7 +49,7 @@ export const healthCheck = () => api.get('/health');
 
 // ========== TIENDA ==========
 export const getStoreItems = async () => {
-  const response = await fetch(STORE_API_URL);
+  const response = await fetch(STORE_API_URL, { cache: 'no-store' });
   if (!response.ok) throw new Error('Store catalog request failed');
 
   const data = await response.json();

@@ -72,7 +72,7 @@ La tienda usa por defecto `GET /api/storeitems` para que el stock administrado y
 VITE_STORE_API_URL=https://api-titangym.onrender.com/storeitems
 ```
 
-Si no se define, se utiliza esa URL automaticamente.
+Si no se define, se utiliza el endpoint del backend (`VITE_API_URL` + `/storeitems`), que comparte la misma colección de Firestore que el panel admin y los pagos.
 
 En Vercel, define `VITE_API_URL` con la URL HTTPS pública del backend Express, incluyendo el sufijo `/api`:
 

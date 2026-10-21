@@ -5,12 +5,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { auth as firebaseAuth, db as firestoreDb } from './config/firebase.js';
 import { resolveAdminStatus, requireAdmin, requireOwnResource, parseWorkoutPayload, validateProfileBusinessFields } from './config/authorization.js';
 import nodemailer from 'nodemailer';
-import PDFDocument from 'pdfkit';
 import Stripe from 'stripe';
 import { generateChatReply } from './services/aiAssistant.js';
 import { createConfirmationToken, executeAdminAction, parseAdminRequest, queryData, readConfirmationToken, saveAdminInteraction, verifyConfirmationToken } from './services/adminAi.js';
 import { buildNutritionPlan, buildTrainingPlan, buildCrossRecommendation } from './services/planGenerator.js';
-import { buildPlanPdf } from './services/planPdf.js';
+import { createPlanPdf } from './services/planPdf.js';
 import { getExercises, getIngredients, getStoreItems, clearStoreItemsCache, categoryNames, categoryIcons, firestoreRead } from './services/dataAccess.js';
 
 dotenv.config();
@@ -166,7 +165,10 @@ app.get('/api/health', (req, res) => {
 // ========== RUTAS DE TIENDA ==========
 app.get('/api/storeitems', async (req, res) => {
   try {
-    res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
+    // Stock y precio pueden cambiar desde el panel admin: nunca servir una
+    // copia antigua desde el navegador o un CDN.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
     const storeItems = await getStoreItems();
     res.json(storeItems);
   } catch (error) {
@@ -1445,17 +1447,10 @@ app.post('/api/ai/generate-pdf', async (req, res) => {
     return res.status(400).json({ error: 'Plan no válido' });
   }
   try {
-    const doc = new PDFDocument({ margin: 50 });
-    const chunks = [];
-    doc.on('data', chunk => chunks.push(chunk));
-    buildPlanPdf(doc, plan, language);
-    doc.on('end', () => {
-      const pdfBuffer = Buffer.concat(chunks);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=plan-${plan.type}-${Date.now()}.pdf`);
-      res.send(pdfBuffer);
-    });
-    doc.end();
+    const pdfBuffer = await createPlanPdf(plan, language);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=plan-${plan.type}-${Date.now()}.pdf`);
+    res.send(pdfBuffer);
   } catch (error) {
     console.error('Error generando PDF:', error);
     res.status(500).json({ success: false, error: 'No se pudo generar el PDF' });
