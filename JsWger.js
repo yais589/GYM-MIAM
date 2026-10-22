@@ -22,7 +22,8 @@ const endpoints = {
   muscle: "https://wger.de/api/v2/muscle/",
   language: "https://wger.de/api/v2/language/",
   license: "https://wger.de/api/v2/license/",
-  exerciseimage: "https://wger.de/api/v2/exerciseimage/"
+  exerciseimage: "https://wger.de/api/v2/exerciseimage/",
+  ingredientinfo: "https://wger.de/api/v2/ingredientinfo/?language=4&limit=100" // Español con imágenes
 };
 
 function getNamedValues(items = []) {
@@ -125,18 +126,33 @@ async function importEndpoint(name, url) {
   const data = await fetchAllPages(url);
   console.log(`Registros obtenidos: ${data.length}`);
 
+  // Filtrar ingredientes: solo los que tienen datos nutricionales (sin requisito de imagen)
+  let filteredData = data;
+  if (name === 'ingredientinfo') {
+    filteredData = data.filter(item => {
+      const hasNutrition = item.energy != null && item.protein != null && item.carbohydrates != null && item.fat != null;
+      return hasNutrition;
+    });
+    console.log(`Ingredientes con nutrición: ${filteredData.length} de ${data.length}`);
+  }
+
   const collection = db.collection(name);
 
   // Borrar colección anterior
   const snapshot = await collection.get();
   snapshot.forEach(doc => doc.ref.delete());
 
-  // Insertar nuevos datos
-  for (const item of data) {
-    await collection.add(item);
+  // Insertar nuevos datos en lotes
+  for (let i = 0; i < filteredData.length; i += 400) {
+    const batch = db.batch();
+    filteredData.slice(i, i + 400).forEach(item => {
+      const docRef = collection.doc();
+      batch.set(docRef, item);
+    });
+    await batch.commit();
   }
 
-  console.log(`✔ ${name} importado correctamente`);
+  console.log(`✔ ${name} importado correctamente: ${filteredData.length} registros`);
 }
 
 // Ejecutar todo

@@ -1,5 +1,5 @@
-.favorites {
-  background: white;
+﻿.favorites {
+  background: var(--surface-color);
   border-radius: 12px;
   padding: 30px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -7,14 +7,14 @@
 
 .favorites h2 {
   font-size: 1.8rem;
-  color: #1f2937;
+  color: #0f3b42;
   font-weight: 700;
   margin-bottom: 30px;
 }
 
 .no-items {
   text-align: center;
-  color: #9ca3af;
+  color: #6f9290;
   padding: 40px;
   font-size: 1.1rem;
 }
@@ -26,17 +26,17 @@
 }
 
 .favorite-item {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #17616a 0%, #0f3b42 100%);
   border-radius: 12px;
   overflow: hidden;
-  color: white;
+  color: var(--gray-100);
   transition: all 0.3s ease;
   cursor: pointer;
 }
 
 .favorite-item:hover {
   transform: translateY(-8px);
-  box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 12px 24px rgba(143, 227, 216, 0.24);
 }
 
 .favorite-item img {
@@ -63,8 +63,8 @@
   width: calc(100% - 24px);
   margin: 12px;
   padding: 8px;
-  background: white;
-  color: #667eea;
+  background: var(--surface-color);
+  color: #17616a;
   border: none;
   border-radius: 6px;
   font-weight: 600;

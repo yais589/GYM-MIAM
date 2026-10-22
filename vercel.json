@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "framework": "vite",
+  "installCommand": "npm --prefix catalogo-ejercicios/frontend install",
+  "buildCommand": "npm --prefix catalogo-ejercicios/frontend run build",
+  "outputDirectory": "catalogo-ejercicios/frontend/dist",
+  "rewrites": [
+    {
+      "source": "/((?!api(?:/|$)).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
