@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react'
-import { askAdminAI, getAdminAIInteractions } from '../services/adminAI'
+import { askAdminAI, downloadAdminReportPdf, getAdminAIInteractions } from '../services/adminAI'
 
 function AdminAI({ language }) {
   const isSpanish = language === 'es'
   const [messages, setMessages] = useState([{
     role: 'assistant',
     content: isSpanish
-      ? 'Soy TITAN Admin. Puedo consultar usuarios, planes, favoritos, entrenamientos, pedidos y métricas, además de ejecutar acciones administrativas autorizadas.'
-      : 'I am TITAN Admin. I can inspect users, plans, favorites, workouts, orders and metrics, and execute authorized administrative actions.'
+      ? 'Soy TITAN Admin. Puedo consultar usuarios, planes, favoritos, entrenamientos, pedidos y métricas, preparar informes por periodo (stock, ventas, actividad) y entregártelos en PDF, además de ejecutar acciones administrativas autorizadas.'
+      : 'I am TITAN Admin. I can inspect users, plans, favorites, workouts, orders and metrics, build period reports (stock, sales, activity) and hand them to you as a PDF, plus execute authorized administrative actions.'
   }])
   const [input, setInput] = useState('')
   const [pendingConfirmation, setPendingConfirmation] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [downloading, setDownloading] = useState('')
   const [error, setError] = useState('')
   const [historyLoaded, setHistoryLoaded] = useState(false)
+  const [lastReportSpec, setLastReportSpec] = useState(null)
 
   const loadHistory = async () => {
     try {
@@ -46,11 +48,14 @@ function AdminAI({ language }) {
       const previousUserMessage = [...messages].reverse().find(item => item.role === 'user')?.content || ''
       const previousAssistantMessage = [...messages].reverse().find(item => item.role === 'assistant')?.content || ''
       const conversationContext = [previousUserMessage, previousAssistantMessage].filter(Boolean).join(' | ')
-      const result = await askAdminAI(text, confirmationToken, conversationContext)
+      const result = await askAdminAI(text, confirmationToken, conversationContext, lastReportSpec)
+      const report = result.report || null
+      if (report?.spec) setLastReportSpec(report.spec)
       setMessages(current => [...current, {
         role: 'assistant',
         content: result.reply || (isSpanish ? 'Acción completada.' : 'Action completed.'),
-        data: result.data
+        data: result.data,
+        report
       }])
       setPendingConfirmation(result.requiresConfirmation ? result.confirmationToken : null)
     } catch (requestError) {
@@ -60,9 +65,57 @@ function AdminAI({ language }) {
     }
   }
 
+  const downloadPdf = async (report) => {
+    if (!report?.spec) return
+    const key = `${report.spec.type}-${report.spec.from}`
+    setDownloading(key)
+    setError('')
+    try {
+      await downloadAdminReportPdf(report.spec, language)
+    } catch (downloadError) {
+      setError(downloadError.message)
+    } finally {
+      setDownloading('')
+    }
+  }
+
   const labels = isSpanish
-    ? { title: 'TITAN Admin IA', placeholder: 'Pregunta o indica una acción administrativa...', send: 'Enviar', confirm: 'Confirmar acción', cancel: 'Cancelar', examples: 'Ejemplos', exampleList: ['¿Cuántos administradores hay?', '¿Cuántas cuentas activas hay?', '¿Cuántos favoritos de nutrición hay?', 'Busca el usuario con email...'] }
-    : { title: 'TITAN Admin AI', placeholder: 'Ask or describe an administrative action...', send: 'Send', confirm: 'Confirm action', cancel: 'Cancel', examples: 'Examples', exampleList: ['How many administrators are there?', 'How many active accounts are there?', 'How many nutrition favorites are there?', 'Find the user with email...'] }
+    ? {
+        title: 'TITAN Admin IA',
+        placeholder: 'Pide un informe, un PDF o una acción administrativa...',
+        send: 'Enviar',
+        confirm: 'Confirmar acción',
+        cancel: 'Cancelar',
+        download: 'Descargar PDF',
+        downloading: 'Generando PDF...',
+        reportRows: (rows) => `${rows} fila(s)`,
+        examples: 'Ejemplos',
+        exampleList: [
+          'PDF con las actualizaciones de stock',
+          'Últimos movimientos de los últimos 10 usuarios',
+          'Ventas e ingresos de este mes',
+          'Hazlo del mes pasado',
+          '¿Cuántos administradores hay?'
+        ]
+      }
+    : {
+        title: 'TITAN Admin AI',
+        placeholder: 'Ask for a report, a PDF or an administrative action...',
+        send: 'Send',
+        confirm: 'Confirm action',
+        cancel: 'Cancel',
+        download: 'Download PDF',
+        downloading: 'Building PDF...',
+        reportRows: (rows) => `${rows} row(s)`,
+        examples: 'Examples',
+        exampleList: [
+          'PDF with the stock updates',
+          'Last movements of the last 10 users',
+          'Sales and revenue for this month',
+          'Do it for last month',
+          'How many administrators are there?'
+        ]
+      }
 
   return (
     <section className="admin-ai" aria-labelledby="admin-ai-title">
@@ -74,11 +127,29 @@ function AdminAI({ language }) {
         <span className="admin-ai-badge">ADMIN ONLY</span>
       </div>
       <div className="admin-ai-messages" aria-live="polite">
-        {messages.map((message, index) => (
-          <div className={`admin-ai-message ${message.role}`} key={`${message.role}-${index}`}>
-            <p>{message.content}</p>
-          </div>
-        ))}
+        {messages.map((message, index) => {
+          const reportKey = message.report?.spec ? `${message.report.spec.type}-${message.report.spec.from}` : ''
+          return (
+            <div className={`admin-ai-message ${message.role}`} key={`${message.role}-${index}`}>
+              <p>{message.content}</p>
+              {reportKey && (
+                <div className="admin-ai-report">
+                  <button
+                    type="button"
+                    onClick={() => downloadPdf(message.report)}
+                    disabled={downloading === reportKey}
+                  >
+                    {downloading === reportKey ? labels.downloading : labels.download}
+                  </button>
+                  <small>
+                    {message.report.range?.label || ''}
+                    {message.report.totalRows ? ` · ${labels.reportRows(message.report.totalRows)}` : ''}
+                  </small>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
       {pendingConfirmation && (
         <div className="admin-ai-confirm">

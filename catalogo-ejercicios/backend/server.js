@@ -11,6 +11,9 @@ import { createConfirmationToken, executeAdminAction, parseAdminRequest, queryDa
 import { buildNutritionPlan, buildTrainingPlan, buildCrossRecommendation } from './services/planGenerator.js';
 import { createPlanPdf } from './services/planPdf.js';
 import { getExercises, getIngredients, getStoreItems, clearStoreItemsCache, categoryNames, categoryIcons, firestoreRead } from './services/dataAccess.js';
+import { buildStockMovement, recordStockMovement } from './services/stockAudit.js';
+import { buildReport, describeReport, detectReportRequest, parseRange, toReportSpec, validateReportSpec } from './services/adminReports.js';
+import { createReportPdf } from './services/adminReportPdf.js';
 
 dotenv.config();
 
@@ -61,10 +64,21 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
               const itemReference = firestoreDb.collection('storeitems').doc(String(item.id));
               const itemSnapshot = await transaction.get(itemReference);
               if (itemSnapshot.exists) {
+                const currentStock = Math.max(0, Number(itemSnapshot.data().stock) || 0);
+                const releasedStock = currentStock + Number(item.quantity || 0);
                 transaction.update(itemReference, {
-                  stock: Math.max(0, (Number(itemSnapshot.data().stock) || 0) + Number(item.quantity || 0)),
+                  stock: releasedStock,
                   updatedAt: new Date()
                 });
+                transaction.set(firestoreDb.collection('stockMovements').doc(), buildStockMovement({
+                  productId: item.id,
+                  productName: itemSnapshot.data().name || String(item.id),
+                  type: 'liberacion',
+                  before: currentStock,
+                  after: releasedStock,
+                  orderId,
+                  reason: 'Pedido expirado: se libera la reserva'
+                }));
               }
             }
             transaction.update(orderReference, { status: 'expired', expiredAt: new Date() });
@@ -265,6 +279,17 @@ app.post('/api/stripe/create-checkout-session', requireFirebaseUser, async (req,
           stock: stock - requestedItem.quantity,
           updatedAt: new Date()
         });
+        transaction.set(firestoreDb.collection('stockMovements').doc(), buildStockMovement({
+          productId: requestedItem.id,
+          productName: product.name || requestedItem.id,
+          type: 'reserva',
+          before: stock,
+          after: stock - requestedItem.quantity,
+          orderId: orderReference.id,
+          actorUid: req.firebaseUser.uid,
+          actorEmail: req.firebaseUser.email || '',
+          reason: 'Reserva de stock al iniciar el pago'
+        }));
       }
     });
     clearStoreItemsCache();
@@ -328,10 +353,21 @@ app.post('/api/stripe/create-checkout-session', requireFirebaseUser, async (req,
         }
         for (const { item, reference, snapshot } of itemSnapshots) {
           if (snapshot.exists) {
+            const currentStock = Math.max(0, Number(snapshot.data().stock) || 0);
+            const restoredStock = currentStock + Number(item.quantity || 0);
             transaction.update(reference, {
-              stock: (Number(snapshot.data().stock) || 0) + Number(item.quantity || 0),
+              stock: restoredStock,
               updatedAt: new Date()
             });
+            transaction.set(firestoreDb.collection('stockMovements').doc(), buildStockMovement({
+              productId: item.id,
+              productName: snapshot.data().name || String(item.id),
+              type: 'liberacion',
+              before: currentStock,
+              after: restoredStock,
+              orderId: orderReference.id,
+              reason: 'El pago no se pudo iniciar: se devuelve el stock reservado'
+            }));
           }
         }
         transaction.delete(orderReference);
@@ -370,7 +406,20 @@ app.patch('/api/admin/storeitems/:id', requireAuthWithAdmin, requireAdmin, async
   const reference = firestoreDb.collection('storeitems').doc(String(req.params.id));
   const snapshot = await reference.get();
   if (!snapshot.exists) return res.status(404).json({ error: 'Producto no encontrado' });
+  const previousStock = Math.max(0, Number.parseInt(snapshot.data()?.stock, 10) || 0);
   await reference.update({ stock, price: Number(price.toFixed(2)), isAvailable: req.body.isAvailable !== false, updatedAt: new Date() });
+  if (previousStock !== stock) {
+    await recordStockMovement(firestoreDb, {
+      productId: snapshot.id,
+      productName: snapshot.data()?.name || snapshot.id,
+      type: 'manual',
+      before: previousStock,
+      after: stock,
+      actorUid: req.firebaseUser.uid,
+      actorEmail: req.firebaseUser.email || '',
+      reason: 'Edición manual desde el panel de administración'
+    });
+  }
   clearStoreItemsCache();
   res.json({ id: snapshot.id, stock, price: Number(price.toFixed(2)), isAvailable: req.body.isAvailable !== false });
 });
@@ -495,8 +544,41 @@ app.put('/api/profile', requireAuthWithAdmin, async (req, res) => {
 // ========== PANEL DE ADMINISTRACIÓN ==========
 // Estas rutas nunca aceptan un uid o rol enviado por el cliente como prueba de
 // permisos: requireAdmin siempre consulta admins/{uid} en Firestore.
+
+/**
+ * Resuelve informes (stock, usuarios, ventas, actividad) y los devuelve ya
+ * agregados, listos para el chat y para descargar en PDF. También permite
+ * repetir el último informe con otro periodo («hazlo del mes pasado»).
+ */
+async function resolveAdminReport({ message, context = '', intent = null, lastReport = null }) {
+  const previous = validateReportSpec(lastReport);
+  const followUp = !intent && previous.ok
+    && /(pdf|informe|reporte|report|otra vez|de nuevo|amplia|ampliar|actualiza|hazlo|repite|ahora|mes|semana|ano|trimestre)/.test(String(message).toLowerCase());
+  if (!intent && !followUp) return null;
+
+  let spec;
+  if (intent) {
+    spec = toReportSpec(intent);
+  } else {
+    const range = parseRange(`${message} ${context}`);
+    spec = {
+      ...previous.spec,
+      ...(range.explicit ? { from: range.from.toISOString(), to: range.to.toISOString(), label: range.label } : {})
+    };
+  }
+
+  const report = await buildReport(spec, { firestore: firestoreDb, auth: firebaseAuth, getStoreItems });
+  const reply = `${describeReport(report)}\n\nDescarga el informe completo en PDF con el botón «Descargar PDF».`;
+  return { report, reply };
+}
+
 app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) => {
   const parsed = parseAdminRequest(req.body || {});
+  const queryContext = typeof req.body.context === 'string' ? req.body.context.slice(0, 2000) : '';
+  const reportIntent = detectReportRequest(parsed.message, queryContext);
+  // Un informe nunca debe confundirse con una acción administrativa
+  // ("usuarios desactivados" contenía el verbo "desactivar").
+  if (reportIntent && !String(req.body.action || '').trim() && !parsed.target) parsed.action = null;
   const confirmationToken = req.body.confirmToken || req.body.confirmationToken;
   const tokenDetails = !parsed.action && confirmationToken ? readConfirmationToken(confirmationToken) : null;
   if (tokenDetails && /^(confirmo|confirm|sí|si|yes|acepto)/i.test(parsed.message)) {
@@ -561,7 +643,32 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
       return res.json(result);
     }
 
-    const queryContext = typeof req.body.context === 'string' ? req.body.context.slice(0, 2000) : '';
+    if (!parsed.action) {
+      const reportResponse = await resolveAdminReport({
+        message: parsed.message,
+        context: queryContext,
+        intent: reportIntent,
+        lastReport: req.body.lastReport
+      });
+      if (reportResponse) {
+        await saveAdminInteraction(firestoreDb, {
+          ...parsed,
+          userId: req.firebaseUser.uid,
+          status: 'completed',
+          reply: reportResponse.reply,
+          data: { reportType: reportResponse.report.type, reportSpec: reportResponse.report.spec }
+        }).catch(saveError => console.error(`No se pudo persistir el informe IA: ${saveError.message}`));
+        return res.json({
+          reply: reportResponse.reply,
+          action: null,
+          requiresConfirmation: false,
+          confirmationToken: null,
+          data: null,
+          report: reportResponse.report
+        });
+      }
+    }
+
     const data = await queryData(parsed.message, firestoreDb, firebaseAuth, { getExercises, getIngredients }, queryContext);
     if (!data) {
       const { reply } = await generateChatReply({
@@ -602,6 +709,26 @@ app.post('/api/admin/ai', requireAuthWithAdmin, requireAdmin, async (req, res) =
       confirmationToken: null,
       data: null
     });
+  }
+});
+
+// Descarga del informe en PDF. Se reconstruye desde la spec para que el
+// documento salga siempre de datos reales y no de lo que mande el navegador.
+app.post('/api/admin/ai/report-pdf', requireAuthWithAdmin, requireAdmin, async (req, res) => {
+  const validation = validateReportSpec(req.body?.spec);
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
+
+  try {
+    const report = await buildReport(validation.spec, { firestore: firestoreDb, auth: firebaseAuth, getStoreItems });
+    const pdf = await createReportPdf(report, req.body?.language === 'en' ? 'en' : 'es');
+    const fileName = `informe-${report.type}-${validation.spec.from.slice(0, 10)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(pdf);
+  } catch (error) {
+    console.error(`Error generando el PDF administrativo: ${error.message}`);
+    res.status(500).json({ error: 'No se pudo generar el PDF del informe' });
   }
 });
 
