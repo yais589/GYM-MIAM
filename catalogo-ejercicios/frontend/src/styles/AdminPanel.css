@@ -85,6 +85,10 @@
 .admin-ai-form input { flex: 1; min-width: 0; padding: 12px; border: 1px solid rgba(79,169,160,.35); border-radius: 9px; background: #fff; color: #173b43; font: inherit; }
 .admin-ai-form button, .admin-ai-confirm button { border: 0; border-radius: 9px; padding: 10px 13px; color: #fff; background: #4b8c89; font: inherit; font-weight: 700; cursor: pointer; }
 .admin-ai-form button:disabled { cursor: not-allowed; opacity: .55; }
+.admin-ai-report { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding-top: 9px; border-top: 1px dashed rgba(109,80,185,.3); }
+.admin-ai-report button { border: 0; border-radius: 8px; padding: 8px 12px; color: #fff; background: #6d50b9; font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
+.admin-ai-report button:disabled { cursor: progress; opacity: .65; }
+.admin-ai-report small { color: #55767a; font-size: .68rem; }
 .admin-ai-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
 .admin-ai-examples small { width: 100%; color: #55767a; }
 .admin-ai-examples button { border: 1px solid rgba(79,169,160,.25); border-radius: 999px; padding: 6px 9px; color: #246d69; background: rgba(255,255,255,.7); font-size: .73rem; cursor: pointer; }
