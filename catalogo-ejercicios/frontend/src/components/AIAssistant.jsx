@@ -10,28 +10,34 @@ const COPY = {
   es: {
     title: 'TITAN IA',
     subtitle: 'Tu entrenador y nutricionista virtual · Plan Elite',
-    welcome: '¡Hola! 👋 Soy TITAN, tu entrenador y nutricionista virtual. Pregúntame lo que quieras: ejercicios por grupo muscular ("dame 2 de espalda y 4 de pierna"), alimentos concretos ("¿cuántas calorías tiene el pollo?", "alimentos con menos de 100 kcal"), la tienda... o crea tu plan personalizado hablando conmigo. ¿Empezamos?',
+    welcome: '¡Hola! 👋 Soy TITAN, tu entrenador y nutricionista virtual. Te respondo sobre entrenamiento, nutrición, los planes y la tienda de TITAN GYM. Pídeme ejercicios por grupo muscular ("dame 2 de espalda y 4 de pierna"), alimentos con sus valores ("¿cuántas calorías tiene el pollo?", "alimentos con menos de 100 kcal"), precios o productos... o crea tu plan personalizado hablando conmigo. ¿Empezamos?',
     placeholder: 'Escribe tu mensaje...',
     planTrigger: '📋 Crear mi plan con TITAN',
+    help: '¿Qué puedes hacer?',
+    helpLabel: 'Ver todo lo que puedo hacer',
     suggestions: [
       { icon: '🏋️', text: 'Dame 2 ejercicios de espalda y 4 de pierna' },
       { icon: '🥗', text: 'Alimentos con menos de 100 kcal' },
       { icon: '🥩', text: '¿Qué alimentos tienen más proteína?' },
-      { icon: '🛒', text: '¿Qué productos de la tienda me recomiendas?' },
+      { icon: '🛒', text: '¿Qué me recomiendas para recuperar después de entrenar?' },
+      { icon: '💳', text: '¿Qué planes hay y cuánto cuestan?' },
       { icon: '🔥', text: 'Quiero perder grasa, ¿por dónde empiezo?' }
     ]
   },
   en: {
     title: 'TITAN AI',
     subtitle: 'Your virtual trainer & nutritionist · Elite Plan',
-    welcome: 'Hi! 👋 I am TITAN, your virtual trainer and nutritionist. Ask me anything: exercises by muscle group ("give me 2 back and 4 leg exercises"), specific foods ("how many calories does chicken have?", "foods under 100 kcal"), the shop... or build your personalized plan by chatting with me. Shall we start?',
+    welcome: 'Hi! 👋 I am TITAN, your virtual trainer and nutritionist. I answer about training, nutrition, the plans and the TITAN GYM shop. Ask me for exercises by muscle group ("give me 2 back and 4 leg exercises"), food with real values ("how many calories does chicken have?", "foods under 100 kcal"), prices or products... or build your personalized plan by chatting with me. Shall we start?',
     placeholder: 'Type your message...',
     planTrigger: '📋 Build my plan with TITAN',
+    help: 'What can you do?',
+    helpLabel: 'See everything I can do',
     suggestions: [
       { icon: '🏋️', text: 'Give me 2 back and 4 leg exercises' },
       { icon: '🥗', text: 'Foods under 100 kcal' },
       { icon: '🥩', text: 'Which foods have the most protein?' },
-      { icon: '🛒', text: 'Which shop products do you recommend?' },
+      { icon: '🛒', text: 'What do you recommend for recovery after training?' },
+      { icon: '💳', text: 'What plans are there and how much do they cost?' },
       { icon: '🔥', text: 'I want to lose fat, where do I start?' }
     ]
   }
@@ -88,7 +94,7 @@ const GOAL_MAP = {
 
 // Temas prohibidos (fallback local si el backend no responde)
 const OFF_TOPIC_PATTERN = /(clima|tiempo atmosférico|chiste|película|películas|política|presidente|fútbol|música|programación|código|javascript|matemáticas|historia|geografía)/i
-const TOPIC_BOUNCE = 'Lo siento, no puedo dar esta información. Solo puedo ayudarte con temas de nutrición, ejercicio y la tienda de TITAN GYM.'
+const TOPIC_BOUNCE = 'Eso se sale de lo que puedo hacer 🙈 Soy TITAN y solo respondo sobre entrenamiento, nutrición y esta web.\n\nPuedo buscarte ejercicios del catálogo, alimentos con sus valores, explicarte los planes o recomendarte productos de la tienda. ¿Con cuál seguimos?'
 
 // Adjunta un código de error para poder distinguir la causa real del fallo
 function withCode(error, code) {
@@ -528,6 +534,7 @@ function AIAssistant({ language, onClose }) {
             <span className="ai-widget-status"><i />{isSpanish ? 'En línea' : 'Online'}</span>
           </div>
           <div className="ai-widget-header-actions">
+            <button type="button" onClick={() => sendMessage(t.help)} title={t.helpLabel} disabled={thinking}>💡</button>
             <button type="button" onClick={() => setExpanded(value => !value)} title={expanded ? '—' : '+'}>{expanded ? '🗗' : '⛶'}</button>
             <button type="button" onClick={onClose} title={isSpanish ? 'Cerrar' : 'Close'}>×</button>
           </div>
@@ -646,6 +653,7 @@ function AIAssistant({ language, onClose }) {
 
         {showSuggestions && (
           <div className="ai-widget-suggestions">
+            <button type="button" className="ai-plan-cta" onClick={startWizard}>{t.planTrigger}</button>
             {t.suggestions.map(suggestion => (
               <button key={suggestion.text} type="button" onClick={() => sendMessage(suggestion.text)}>
                 <span>{suggestion.icon}</span> {suggestion.text}

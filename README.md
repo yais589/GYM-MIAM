@@ -98,6 +98,12 @@ Para probar un pago en modo test usa la tarjeta `4242 4242 4242 4242`, una fecha
 
 El panel de administración permite editar stock, precio y disponibilidad desde `Tienda > Control de tienda > Inventario y stock`. Este botón solo se renderiza para cuentas admin, y las rutas siguen protegidas por Firebase Authentication y el rol admin del backend.
 
+### Informes de la IA administrativa
+
+La IA del panel admin entiende periodos en lenguaje natural (`este mes`, `el mes pasado`, `los últimos 7 días`, `en marzo de 2025`, `del 1 al 15 de marzo`) y genera informes de stock, usuarios, ventas y actividad. Cada informe se puede descargar en PDF y se recalcula en el servidor desde su `spec` (tipo + fechas), nunca desde datos enviados por el navegador.
+
+Los movimientos de stock se guardan en la colección `stockMovements` (ajustes manuales, reservas y liberaciones). Firestore solo guarda el stock actual, así que el historial empieza a partir de esta versión; los informes anteriores a ella muestran la última actualización de cada producto. Las reglas de Firestore deben impedir escrituras de clientes en `stockMovements`, igual que en `admins`: solo las escribe el backend con Firebase Admin.
+
 ### Configurar administradores
 
 Los permisos de administrador se consultan en Firestore:
@@ -127,6 +133,9 @@ El UID se obtiene en **Authentication > Users**. No uses el email como ID del do
 - `POST /api/stripe/webhook`
 - `GET /api/admin/storeitems`
 - `PATCH /api/admin/storeitems/:id`
+- `POST /api/admin/ai`
+- `POST /api/admin/ai/report-pdf`
+- `GET /api/admin/ai/interactions`
 - `POST /api/user`
 - `GET /api/user/:id`
 - `PUT /api/user/:id`

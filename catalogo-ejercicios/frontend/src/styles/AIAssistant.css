@@ -271,6 +271,20 @@
   transform: translateY(-1px);
 }
 
+/* El botón del plan va primero y destacado: es la acción estrella del asistente */
+.ai-widget-suggestions button.ai-plan-cta {
+  border-color: #8fe3d8;
+  background: #8fe3d8;
+  color: #06231f;
+  font-weight: 600;
+}
+
+.ai-widget-suggestions button.ai-plan-cta:hover {
+  background: #a9efe5;
+  border-color: #a9efe5;
+  color: #06231f;
+}
+
 /* ---------- Entrada ---------- */
 .ai-widget-input {
   display: grid;
